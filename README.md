@@ -1,7 +1,11 @@
-# HR-Analytics-Dashboards
+# Dashboards, Analysis, and Reporting
 
-This repository will contain various screenshots of the countless visualizations that have been developed in my last three years as a member of the HR Analytics team.
+This repository will contain various screenshots of the various visualizations that have been developed in my last three years at the University of Minnesota, both for the Office of Human Resources as well as a graduate in the MSBA program.
 
-1.  Tableau (HR Executive reporting)
+1.  Tableau demos and dashboards
 
-2.  Oracle Business Intelligence Enterprise Edition (Position, Job, Compensation reporting)
+2.  Oracle Business Intelligence Enterprise Edition demos and dashboards
+
+3.  Python demos and dashboards
+
+4.  R demos and dashboards
