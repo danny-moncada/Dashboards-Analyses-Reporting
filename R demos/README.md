@@ -1,8 +1,13 @@
 # R demos and dashboards
 
-## 1.  Introduction to Statistics
+## 1.  Introduction to Statistics (coursework)
 
-* Coursework
+* HTML
+* R scripts
+* PDF outputs
+
+## 2.  Analytics for Competitve Advantage (coursework)
+
 * R scripts
 * PDF outputs
 
