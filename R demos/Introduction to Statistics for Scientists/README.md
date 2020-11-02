@@ -17,4 +17,20 @@
 </li>
 </ul>
 
+ul>
+<li>Fruit
+<ul>
+<li>Apple</li>
+<li>Orange</li>
+<li>Banana</li>
+</ul>
+</li>
+<li>Dairy
+<ul>
+<li>Milk</li>
+<li>Cheese</li>
+</ul>
+</li>
+</ul>
+
 # Sample statistical analysis of the English Premier League.
