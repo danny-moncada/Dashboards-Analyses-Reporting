@@ -3,7 +3,7 @@
 ## Course Objectives:
 
 <ul>
-<li>Familiarity with classical ideas of data analysis, including:</li>
+<li>Familiarity with classical ideas of data analysis, including
 <li>data organization</li>
 <li>estimation and testing</li>
 <li>regression</li>
