@@ -1,0 +1,3201 @@
+
+
+<cfset SESSION.Goaluser_role = 'user'>
+
+<!--- Get Goal user role --->
+<cfquery name="ActiveGoalUser" datasource=#GoalSettingDataSource#>
+
+    select   distinct
+             a.userID,
+             a.internetID,
+             a.user_role
+    from     oirweb2.eoaa_goalsetting_access a
+    where    a.user_status = 'active'
+      and    a.user_role in ('user','owner','admin')
+      and    a.internetID = '#SESSION.OIR2.InternetID#'
+
+</cfquery>
+
+<!---   get AAP2Factor max goal year   --->
+<cfquery name="MaxGoalYear" datasource=#GoalSettingDataSource#>
+
+    select max(a.goal_year) as max_goal_year
+    from   oirweb2.eoaa_aap2factor_data a
+
+</cfquery>
+	
+<!---   get disabled/veteran data   --->
+<cfquery name="DisabledVeteranData" datasource=#GoalSettingDataSource#>
+
+    select   a.*
+    from     oirweb2.eoaa_aap2factor_years a
+    where    a.goal_year = #MaxGoalYear.max_goal_year# 	 
+
+</cfquery>
+
+<cfif #ActiveGoalUser.RecordCount# is 1>
+
+    <cfset SESSION.Goaluser_role = #ActiveGoalUser.user_role#>
+
+</cfif>
+
+<!--- set testing status  --->
+
+<!--- Y for yes, N for no   --->
+
+<cfset SESSION.goal_setting_testing = 'N'>
+
+<!--- *********************************************************************
+Begin HTML 
+********************************************************************** --->
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+	
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<!-- University of Minnesota Web template:  v5.101021 -->
+
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="author" content="Office of Institutional Research" />
+<meta name="description" content="EOAA - Goal Setting" />
+<meta name="keywords" content="" />
+<meta name="date" content="" />
+
+<title>Equal Opportunity and Affirmative Action: Goal Setting</title>
+
+<link rel="shortcut icon" href="http://www1.umn.edu/twincities/favicon.ico" type="image/x-icon" />
+
+<link href="/lib/css/reset.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="/lib/css/template.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="/lib/css/optional.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="/lib/css/print.css" rel="stylesheet" type="text/css" media="print" />
+
+<script type="text/javascript" src="/lib/js/searchfield.js"></script>
+
+<!-- Add your unit's style sheet(s) here -->
+
+<link href="/lib/css/oir2.css" rel="stylesheet" type="text/css" media="screen" />
+
+<!-- Include IE fixes... -->
+<cfinclude template="/assets/inc/ie_fixes.cfm">
+
+</head>
+
+<body class="center">
+
+<!-- Include U of M header... -->
+<cfinclude template="/assets/inc/umn_header.cfm">
+
+<!-- Include Unit header... -->
+<!--- <cfinclude template="/assets/inc/unit_header.cfm"> --->
+
+<div class="container_12 bg12">
+
+<div class="grid_12">
+<p class="oir2headerpadding" id="nospace">
+<a href="/"><img src="/assets/img/oir2_eoaa_goalsetting.gif" alt="Goal Setting pages." width="954" height="48" /></a>
+</p>
+</div>
+
+</div>
+
+<div class="container_12 bg12">
+
+<div class="grid_12">
+
+<p class="breadcrumbs">
+<a href="/goalsetting/">Home</a>
+</p>
+
+</div>
+
+<!---
+<div class="grid_12">
+
+<p>
+<!-- Include display session variables ... -->
+<cfinclude template="/assets/inc/display_session_variables.cfm">
+</p>
+
+</div>
+--->
+
+<div class="grid_12">
+
+<table>
+<tr> 
+<td valign="top">
+
+<h1>
+Goal Setting<br />
+Display position goals
+</h1>
+
+</td>
+</tr>
+</table>
+
+</div>
+
+<div class="grid_1">
+&nbsp;
+</div>
+
+<div class="grid_10">
+
+<!---
+<form action="displaygoals.cfm" method="POST">
+
+    <!--- Set last update date/time --->
+    <input type="hidden" name="last_update_datetime" value="CurrentDateTime()">
+   
+    <b>Position Number:</b><br />
+
+        <cfif IsDefined("FORM.position_number")>
+
+            <cfoutput>
+		    <input type="text" name="position_number" value="#FORM.position_number#" size="6" maxlength="6">
+		    </cfoutput>
+	
+        <cfelse>
+
+            <input type="text" name="position_number" size="6" maxlength="6">
+	
+        </cfif>
+
+    <br />
+
+    <input type="submit" value="Display Goals">
+
+    <br /><br /><br />
+    
+</form>
+--->
+
+<form action="displaygoals.cfm" method="POST">
+
+    <!--- Set last update date/time --->
+    <input type="hidden" name="last_update_datetime" value="CurrentDateTime()">
+   
+    <table width="750" border="0" cellpadding="0" cellspacing="10">
+
+    <tr>
+    <td valign="top">
+    <b>Position Number:</b>
+
+        <cfif IsDefined("FORM.position_number")>
+
+            <cfoutput>
+		    <input type="text" name="position_number" value="#FORM.position_number#" size="6" maxlength="6">
+		    </cfoutput>
+	
+        <cfelse>
+
+            <input type="text" name="position_number" size="6" maxlength="6">
+	
+        </cfif>
+
+    <input type="submit" value="Display Goals">
+
+    </td>
+    </tr>
+    <tr>
+    <td valign="top">
+    <br />
+    </td>
+    </tr>
+
+    </table>
+
+</form>
+
+<cfif IsDefined("FORM.position_number")>
+
+    <cfif #FORM.position_number# gt ' '>
+	
+	    <cfif len(#FORM.position_number#) not equal 6>
+		
+		    Please enter a six-digit position number.
+			<br /><br />
+			
+		<cfelse>
+		
+            <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                <cfcase value="Y">
+
+	                <cfoutput>
+		            You entered Position Number: #FORM.position_number#
+				    <br /><br />
+		            </cfoutput>
+
+                </cfcase>
+
+            </cfswitch>   <!--- goal_setting_testing --->
+
+		</cfif>
+
+    </cfif>
+	
+</cfif>
+
+<!--- test if position number is valid and active --->
+
+<cfif IsDefined("FORM.position_number") and (len(#FORM.position_number#) equal 6)> 
+
+<!---   test position number   --->
+    <cfquery name="TestPositionNumber" datasource=#GoalSettingDataSource#>
+
+        select a.effdt,
+               a.location,
+               a.position_nbr,
+		       a.position_descr,
+               a.deptid,
+		       a.deptid_descr,
+               b.ipedsscode||b.eeo_job_group eeo_jobcode_group,
+               a.jobcode,
+               a.jobcode_descr,
+               c.um_jobcode_group,
+               c.um_jobcde_gp_descr um_jobcode_group_descr
+
+        from   oiradm.ps_dwhr_position_data a,
+               oiradm.hr_ps_jobcode_tbl b,
+               oiradm.hr_ps_um_jc_cat_flat c
+
+        where  a.jobcode = b.jobcode
+          and  a.jobcode = c.jobcode
+          and  a.position_nbr in ('#FORM.position_number#')
+		  and  a.eff_status in ('A')
+	      and  a.status_flg in ('C')
+          and  b.effdt = (select max(g.effdt)
+                          from   oiradm.hr_ps_jobcode_tbl g
+                          where  b.jobcode = g.jobcode
+                            and  g.effdt < = sysdate)
+
+    </cfquery>
+	
+	<cfif #TestPositionNumber.RecordCount# is 0>
+	
+	    You have entered an invalid or inactive position number. Please try again.<br /><br />
+	
+	</cfif>
+	
+</cfif>
+
+<!--- need to split between um_jobcode_group FA and all others --->
+
+<!--- we have a valid and active position number and UM_jobcode_group, find position information --->
+
+<cfif IsDefined("FORM.position_number")
+      and (len(#FORM.position_number#) equal 6)
+	  and (#TestPositionNumber.RecordCount# greater than 0)> 
+
+    <!---   get position infomation   --->
+	
+	<cfif #TestPositionNumber.um_jobcode_group# is 'FA'>
+	
+        <cfquery name="PositionInfo" datasource=#GoalSettingDataSource#>
+
+            select a.effdt,
+                   a.location,
+                   f.um_campus,
+		           f.um_campus_descr,
+                   a.position_nbr,
+		           a.position_descr,
+                   a.deptid,
+		           a.deptid_descr,
+		           c.um_entity,
+		           c.um_entity_descr, 
+                   d.um_jobcode_group,
+                   d.um_jobcde_gp_descr um_jobcode_group_descr,
+                   b.ipedsscode||b.eeo_job_group eeo_jobcode_group,
+                   a.jobcode,
+                   a.jobcode_descr,
+                   case 
+                       when d.um_jobcode_group in ('AA', 'AP', 'FA') then e.academic_title
+                       else e.non_academic_title
+                   end eeo_jobcode_group_descr
+
+            from   oiradm.ps_dwhr_position_data a,
+                   oiradm.hr_ps_jobcode_tbl b,
+                   oiradm.um_entity_um_zdeptid_map c,
+                   oiradm.hr_ps_um_jc_cat_flat d,
+                   oiradm.hr_ps_um_dpttr_cur_vw f,
+                   oiradm.ps_eeo_jobcode_group_tbl e
+
+            where  a.jobcode = b.jobcode
+              and  a.deptid = c.deptid
+              and  a.jobcode = d.jobcode
+              and  a.deptid = f.deptid
+              and  a.position_nbr in ('#FORM.position_number#')
+		      and  a.eff_status in ('A')
+	          and  a.status_flg in ('C')
+		      and  b.ipedsscode = e.ipedsscode(+)
+		      and  b.eeo_job_group = e.eeo_jobcode_group(+)
+              and  b.effdt = (select max(g.effdt)
+                              from   oiradm.hr_ps_jobcode_tbl g
+                              where  b.jobcode = g.jobcode
+                                and  g.effdt < = sysdate)
+
+        </cfquery>
+		
+	<cfelse>
+	
+        <cfquery name="PositionInfo" datasource=#GoalSettingDataSource#>
+
+            select a.effdt,
+                   a.location,
+                   f.um_campus,
+		           f.um_campus_descr,
+                   a.position_nbr,
+		           a.position_descr,
+                   a.deptid,
+		           a.deptid_descr,
+                   d.um_jobcode_group,
+                   d.um_jobcde_gp_descr um_jobcode_group_descr,
+                   b.ipedsscode||b.eeo_job_group eeo_jobcode_group,
+                   a.jobcode,
+                   a.jobcode_descr,
+                   case 
+                       when d.um_jobcode_group in ('AA', 'AP', 'FA') then e.academic_title
+                       else e.non_academic_title
+                   end eeo_jobcode_group_descr
+
+            from   oiradm.ps_dwhr_position_data a,
+                   oiradm.hr_ps_jobcode_tbl b,
+                   oiradm.hr_ps_um_jc_cat_flat d,
+                   oiradm.hr_ps_um_dpttr_cur_vw f,
+                   oiradm.ps_eeo_jobcode_group_tbl e
+
+            where  a.jobcode = b.jobcode
+              and  a.jobcode = d.jobcode
+              and  a.deptid = f.deptid
+              and  a.position_nbr in ('#FORM.position_number#')
+		      and  a.eff_status in ('A')
+	          and  a.status_flg in ('C')
+		      and  b.ipedsscode = e.ipedsscode(+)
+		      and  b.eeo_job_group = e.eeo_jobcode_group(+)
+              and  b.effdt = (select max(g.effdt)
+                              from   oiradm.hr_ps_jobcode_tbl g
+                              where  b.jobcode = g.jobcode
+                                and  g.effdt < = sysdate)
+
+        </cfquery>	
+	
+	</cfif>
+	
+	<cfif #PositionInfo.RecordCount# is 0>
+	
+	    The goals for this Position cannot be calculated at this time. You have entered a position number that has missing information in one or more related database tables.<br />
+		Please contact the help desk, <a href="mailto:help@umn.edu">help@umn.edu</a> or 1-4357.<br />
+		Please mention that you are using the EOAA - Goal Setting application, give them the position number, and ask that the ticket be referred to the T2 - Office of Institutional Research group.<br /><br />
+	
+	</cfif>
+	
+	<cfif (#PositionInfo.RecordCount# is 0) and (#session.Goaluser_role# is 'admin')>
+	
+	<cfoutput query="TestPositionNumber">
+	
+		<b>OIR staff only:</b><br />
+		Position Number and description: #position_nbr# - #position_descr#<br />
+		Jobcode and description: #jobcode# - #jobcode_descr#<br />
+		Department and description: #deptid# - #deptid_descr#<br />
+		Location: #location#<br />
+		<br /><br />
+		
+	</cfoutput>
+	
+	</cfif>
+	
+</cfif>
+
+<!--- we have a valid and active position number, and position information, display position information --->
+	
+<cfif IsDefined("FORM.position_number")
+      and (len(#FORM.position_number#) equal 6)
+	  and (#TestPositionNumber.RecordCount# greater than 0)
+	  and (#PositionInfo.RecordCount# greater than 0)>
+
+	<!---   get AAP2Factor max goal year   --->
+    <!---
+	<cfquery name="MaxGoalYear" datasource=#GoalSettingDataSource#>
+
+        select max(a.goal_year) as max_goal_year
+        from   oirweb2.eoaa_aap2factor_data a
+
+    </cfquery>
+	--->
+	
+	<!---   get most recent payroll   --->
+    <cfquery name="MaxMostRecentPayroll" datasource=#GoalSettingDataSource#>
+
+        select max(a.most_recent_payroll) as max_most_recent_payroll
+        from   oiradm.ps_dweo_person_prim_job_evw a
+
+    </cfquery>
+	
+	<b>The goals below apply to this position:</b>
+	<br /><br />
+	
+	<cfoutput query="PositionInfo">
+	
+	    <cfif #um_jobcode_group# is 'FA'>
+	
+		    Position Number and description: #position_nbr# - #position_descr#<br />
+		    Campus and description: #um_campus# - #um_campus_descr#<br />
+		    Entity and description: #um_entity# - #um_entity_descr#<br />
+		    Jobcode and description: #jobcode# - #jobcode_descr#<br />
+		    Jobcode group and description: #um_jobcode_group# - #um_jobcode_group_descr#<br />
+		    <cfif len(#eeo_jobcode_group_descr#) gt 0>
+		        EEO Jobcode group and description: #eeo_jobcode_group# - #eeo_jobcode_group_descr#<br />
+		    <cfelse>
+		        EEO Jobcode group: #eeo_jobcode_group#<br />
+		    </cfif>
+		    Department and description: #deptid# - #deptid_descr#<br />
+		    Location: #location#<br />
+		    <br /><br />
+		
+		<cfelse>
+		
+		    Position Number and description: #position_nbr# - #position_descr#<br />
+		    Campus and description: #um_campus# - #um_campus_descr#<br />
+		    Jobcode and description: #jobcode# - #jobcode_descr#<br />
+		    Jobcode group and description: #um_jobcode_group# - #um_jobcode_group_descr#<br />
+		    <cfif len(#eeo_jobcode_group_descr#) gt 0>
+		        EEO Jobcode group and description: #eeo_jobcode_group# - #eeo_jobcode_group_descr#<br />
+		    <cfelse>
+		        EEO Jobcode group: #eeo_jobcode_group#<br />
+		    </cfif>
+		    Department and description: #deptid# - #deptid_descr#<br />
+		    Location: #location#<br />
+		    <br /><br />
+		
+		</cfif>
+		
+	</cfoutput>
+	
+</cfif>
+
+<!--- we have a valid and active position number, and position information, and have displayed position information --->
+
+<cfif IsDefined("FORM.position_number")
+      and (len(#FORM.position_number#) equal 6)
+	  and (#TestPositionNumber.RecordCount# greater than 0)
+	  and (#PositionInfo.RecordCount# greater than 0)>
+	
+	<!---   get goal title   --->
+    <cfquery name="GoalTitle" datasource=#GoalSettingDataSource#>
+
+        select   distinct
+		         case 
+                     when a.um_jobcode_group in ('AA', 'AP')
+                         then 'Professional and Administrative Goals'
+                     when a.um_jobcode_group in ('CS')
+                         then 'Civil Service Goals'
+                     when a.um_jobcode_group in ('LR')
+                         then 'Labor Represented Goals'
+                     else 'Faculty Goals'
+                 end goal_title1,
+				 case 
+                     when a.um_jobcode_group in ('AA', 'AP')
+                         then 'SYSTEMWIDE'
+                     when a.um_jobcode_group in ('CS')
+                         then 'by CAMPUS'
+                     when a.um_jobcode_group in ('LR')
+                             then 'by CAMPUS'
+                     else 'by ENTITY'
+                 end goal_title2
+
+		from     oiradm.ps_dweo_person_prim_job_evw a
+						 
+        where    a.um_jobcode_group in ('#PositionInfo.um_jobcode_group#')
+ 
+    </cfquery>
+			
+	<cfswitch expression="#PositionInfo.um_jobcode_group#">  
+        <cfcase value="AA,AP">  
+		
+			<!---   get goal information   --->
+            <cfquery name="GoalInformation" datasource=#GoalSettingDataSource#>
+
+                select   case 
+                             when a.um_jobcode_group in ('AA', 'AP')
+                                 then 'Professional and Administrative Goals SYSTEMWIDE'
+                             when a.um_jobcode_group in ('CS')
+                                 then 'Civil Service Goals by CAMPUS'
+                             when a.um_jobcode_group in ('LR')
+                                 then 'Labor Represented Goals by CAMPUS'
+                             else 'Faculty Goals by ENTITY'
+                         end GOALS,
+						 
+                         a.um_jobcode_group,
+                         a.um_jobcode_group_descr,
+                         a.ipedsscode||a.eeo_jobcode_group eeo_jobcode_group,
+						 
+                         case 
+                             when a.um_jobcode_group in ('AA', 'AP', 'FA')
+                                 then e.academic_title
+                             else e.non_academic_title
+                         end eeo_jobcode_group_descr,
+						 
+						 count (a.emplid) total_workforce,
+						 
+                         <!---     female     --->
+						 
+						 sum(decode (a.sex, 'F', 1, 0)) female_workforce,
+                         c.fem_avail_tot as fem_avail_pct,
+                         round((count (a.emplid) * c.fem_avail_tot/100),1) goal_fem,
+                         case
+                             when sum(decode (a.sex, 'F', 1, 0)) - round((count (a.emplid) * c.fem_avail_tot/100),1) < 0 
+                                 then sum(decode (a.sex, 'F', 1, 0)) - round((count (a.emplid) * c.fem_avail_tot/100),1)
+                             else 0
+                         end ntg_fem,
+						 
+                         <!---     minority     --->
+						 
+						 sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) as minority_workforce,
+						 
+						 c.min_avail_tot as min_avail_pct,
+                         round((count (a.emplid)*c.min_avail_tot/100),1) goal_min,
+                         case
+                             when sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) - round((count (a.emplid)*c.min_avail_tot/100),1) < 0
+                                 then sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) - round((count (a.emplid)*c.min_avail_tot/100),1)
+                             else 0
+                         end ntg_min,
+						 
+						 <!---     disabled     --->
+						 
+						 sum(decode (a.disabled, 'Y', 1, 0)) as disabled_workforce,
+						 
+						 d.disabled as dis_avail_pct,
+						 round((count (a.emplid) * d.disabled/100),1) goal_dis,
+						 case
+                             when sum(decode (a.disabled, 'Y', 1, 0)) - round((count (a.emplid) * d.disabled/100),1) < 0 
+                                 then sum(decode (a.disabled, 'Y', 1, 0)) - round((count (a.emplid) * d.disabled/100),1)
+                             else 0
+                         end ntg_dis,
+						 
+						 <!---     veteran     --->
+						 
+						 sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) as veteran_workforce,
+								  
+						 d.veteran as vet_avail_pct,
+						 round((count (a.emplid) * d.veteran/100),1) goal_vet,
+						 case
+                             when sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) - round((count (a.emplid) * d.veteran/100),1) < 0
+                                 then sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) - round((count (a.emplid) * d.veteran/100),1)
+                             else 0
+                         end ntg_vet
+
+                from     oiradm.ps_dweo_person_prim_job_evw a,
+                         oirweb2.eoaa_aap2factor_data c,
+						 oirweb2.eoaa_aap2factor_years d,
+                         oiradm.ps_eeo_jobcode_group_tbl e
+
+						 
+                where    a.um_jobcode_group = c.um_jobcode_grp
+                  and    a.ipedsscode||a.eeo_jobcode_group = c.combined_eeo_job_group(+)
+                  and    a.ipedsscode = e.ipedsscode(+)
+                  and    a.eeo_jobcode_group = e.eeo_jobcode_group(+)
+				  and    c.goal_year = d.goal_year
+				  
+                  and    a.jobcode not in ('0001','0004','0007','0011')
+                  and    a.deptid not in ('10098','12024','12025','12058','12192')
+                  and    a.ipedsscode not in ('N')
+<!---                  and    a.um_campus in ('TXXX')  --->
+                  and    (a.most_recent_payroll = '#MaxMostRecentPayroll.max_most_recent_payroll#'
+                             or a.empl_status in ('L', 'P', 'W'))
+                  and    a.um_jobcode_group in ('#PositionInfo.um_jobcode_group#')
+				  and    (a.ipedsscode||a.eeo_jobcode_group) in ('#PositionInfo.eeo_jobcode_group#')
+				  
+                  and    c.web_avail = 'TRUE'
+<!---                  and    c.campus_code in ('TXXX') --->
+                  and    c.goal_year = '#MaxGoalYear.max_goal_year#'
+                  and    c.um_jobcode_grp in ('#PositionInfo.um_jobcode_group#')
+
+                group by a.um_jobcode_group, 
+                         a.ipedsscode,
+                         a.eeo_jobcode_group,
+                         a.um_jobcode_group_descr,
+                         e.academic_title,
+                         e.non_academic_title,
+                         c.fem_avail_tot,
+                         c.min_avail_tot,
+                         d.disabled,
+                         d.veteran
+
+                order by a.um_jobcode_group, eeo_jobcode_group	 
+
+            </cfquery>
+			
+			<cfif #GoalInformation.RecordCount# equal 1>
+			
+			    <table width="750" border="0" cellpadding="0" cellspacing="10">
+			
+			    <cfoutput query="GoalTitle">
+
+			    <tr>
+			    <td align="left" colspan="5">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <cfset todayDate = Now()>
+			    <b>Date:</b> #DateFormat(todayDate, "mmm-dd-yyyy")#<br />
+			    <b>Payroll period: </b>#MaxMostRecentPayroll.max_most_recent_payroll#<br /><br />
+			    </td>
+			    </tr>
+
+			    <tr>
+			    <td align="center" colspan="6">
+			    <b>#goal_title1#</b><br />
+			    <b>#goal_title2#</b><br /><br />
+			    </td>
+			    </tr>
+			
+			    </cfoutput>
+
+			    <cfoutput query="GoalInformation">
+			
+			    <tr>
+			    <td align="left" colspan="2">
+			    <b>UM Jobcode Group</b>:<br />
+			    <b>EEO Jobcode Group</b>:<br /><br />
+			    </td>
+			    <td align="left" colspan="4">
+			    #um_jobcode_group# #um_jobcode_group_descr#<br />
+			    #eeo_jobcode_group# #eeo_jobcode_group_descr#<br /><br />
+                </td>
+			    </tr>
+				
+		        <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    &nbsp;
+                </td>	
+			    <td align="center">
+			    <b>Workforce Utilization</b>
+                </td>
+			    <td align="center">
+			    <b>% Availability</b>
+                </td>	
+			    <td align="center">
+			    <b>Goal</b>
+                </td>	
+			    <td align="center">
+			    <b>Number to Goal</b>
+                </td>
+			    </tr>
+			
+			    <tr>
+			    <td align="center" colspan="6">
+			    &nbsp;
+			    </td>
+			    </tr>
+				
+			    <tr>
+			    <td width="30" align="left">
+			    &nbsp;
+                </td>
+			    <td width="150" align="left">
+			    <b>Total</b>:
+                </td>	
+			    <td width="150" align="center" valign="top">
+			    #numberformat(total_workforce)#
+                </td>	
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>	
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>	
+			    </tr>
+			
+			    <tr>
+			    <td align="center" colspan="6">
+			    &nbsp;
+			    </td>
+			    </tr>
+				
+				<tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Female</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(female_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+                <b>#NumberFormat(fem_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_fem,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_fem * -1#</b>
+                </td>	
+			    </tr>
+						
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Minority</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(minority_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#NumberFormat(min_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_min,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_min * -1#</b>
+                </td>
+			    </tr>
+		
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Indiv. with Disabilities</b>:
+                </td>	
+			    <td align="center" valign="bottom">
+			    #numberformat(disabled_workforce)#
+                </td>	
+			    <td align="center" valign="bottom">
+				<b>#NumberFormat(dis_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="bottom">
+			    #numberformat(goal_dis,'_,___._')#
+                </td>	
+			    <td align="center" valign="bottom">
+			    <b>#ntg_dis * -1#</b>
+                </td>	
+			    </tr>
+						
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Protected Veteran</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(veteran_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+				<b>#NumberFormat(vet_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_vet,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_vet * -1#</b>
+                </td>
+			    </tr>
+				
+			    <tr>
+			    <td align="left" colspan="6">
+			
+			    <!--- log request --->
+                <cfinclude template="updaterequestlogdb.cfm">
+
+			    <br /><br />
+                </td>
+			    </tr>
+
+                <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                    <cfcase value="Y">
+
+			            <tr>
+			            <td align="left" colspan="6">
+			            <b>Data for request log:</b><br />
+				        InternetID: #SESSION.OIR2.InternetID# <br />
+					    Name: #SESSION.SHIB.displayName# <br />
+					    Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					    Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					    Position number: #PositionInfo.position_nbr# <br />
+					    Campus: #PositionInfo.um_campus# <br />
+					    Entity: #PositionInfo.um_entity# <br />
+					    Entity description: #PositionInfo.um_entity_descr# <br />
+					    Department: #PositionInfo.deptid# <br />
+					    Department description: #PositionInfo.deptid_descr# <br />
+					    Location: #PositionInfo.location# <br />
+					    Jobcode: #PositionInfo.jobcode# <br />
+					    Jobcode description: #PositionInfo.jobcode_descr# <br />
+					    UM Jobcode group: #um_jobcode_group# <br />
+					    UM Jobcode group description: #um_jobcode_group_descr# <br />
+					    EEO Jobcode group: #eeo_jobcode_group# <br />
+					    EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					    Total workforce: #numberformat(total_workforce)# <br />
+					    Female workforce: #numberformat(female_workforce)# <br />
+					    Female availability: #fem_avail_pct# <br />
+					    Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					    Female number to goal: #ntg_fem * -1# <br />
+					    Minority workforce: #numberformat(minority_workforce)# <br />
+					    Minority availability: #min_avail_pct# <br />
+					    Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					    Minority number to goal: #ntg_min * -1# <br />
+					    <br /><br />
+                        </td>
+			            </tr>
+
+                    </cfcase>
+
+                </cfswitch>   <!--- goal_setting_testing --->
+			
+			    </cfoutput>
+				
+			    <tr>
+			    <td align="left" colspan="6">
+			
+                <strong>Workforce Utilization:</strong>
+                <br />
+                Full-and part-time employees, who were paid or on a leave with or without pay, as of the date of the pay period ending immediately prior to this report. The data is collected from the University's PeopleSoft HRMS Database.
+                <br /><br />
+
+                <strong>% Availability:</strong>
+                <br />
+                Compiled in accordance with federal guidelines, the University's best estimate of the percentage of qualified women, minorities, individuals with disabilities, and protected veterans available in a well-represented hiring pool for a given EEO Jobcode group.
+                <br /><br />
+
+                <strong>Goal:</strong>
+                <br />
+                The number of women, minorities, individuals with disabilities, and protected veterans the University reasonably expects would be employed at the University given their estimated availability in that Jobcode group when equal employment principles are applied.
+                <br /><br />
+				
+                <strong>Number To Goal:</strong>
+                <br />
+                The number of women, minorities, individuals with disabilities, and protected veterans the University would need to hire in order to meet its goal (underutilization).
+                <br /><br />
+				
+                </td>
+			    </tr>
+				
+			    </table>
+
+                <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                    <cfcase value="Y">
+
+                        <cfoutput query="PositionInfo">
+                        <b>Case: AA or AP</b><br /><br />
+                        Max Most recent payroll: #MaxMostRecentPayroll.max_most_recent_payroll#<br />
+                        Max Goal year: #MaxGoalYear.max_goal_year#<br />
+                        UM Jobcode group: #um_jobcode_group#<br />
+                        EEO Jobcode group: #eeo_jobcode_group#<br />
+                        Campus: #um_campus#, however use TXXX<br />
+                        UM_entity: #um_entity#<br />
+                        <br />
+                        Rows returned: #GoalInformation.RecordCount#
+                        <br /><br />
+                        </cfoutput>
+			
+                        <br /><br />
+
+                    </cfcase>
+
+                </cfswitch>   <!--- goal_setting_testing --->
+		
+			<cfelse>
+			
+			    No workforce data.<br />
+				Please contact the help desk, <a href="mailto:help@umn.edu">help@umn.edu</a> or 1-4357.<br />
+		        Please mention that you are using the EOAA - Goal Setting application, give them the position number, and ask that the ticket be referred to the T2 - Office of Institutional Research group.<br /><br />
+			
+			</cfif>
+
+		</cfcase>  
+        <cfcase value="CS,LR">  
+		
+			<!---   get goal information   --->
+            <cfquery name="GoalInformation" datasource=#GoalSettingDataSource#>
+
+                select   case 
+                             when a.um_jobcode_group in ('AA', 'AP')
+                                 then 'Professional and Administrative Goals SYSTEMWIDE'
+                             when a.um_jobcode_group in ('CS')
+                                 then 'Civil Service Goals by CAMPUS'
+                             when a.um_jobcode_group in ('LR')
+                                 then 'Labor Represented Goals by CAMPUS'
+                             else 'Faculty Goals by ENTITY'
+                         end GOALS,
+						 
+                         a.um_campus_descr,
+						 a.um_jobcode_group,
+                         a.um_jobcode_group_descr,
+                         a.ipedsscode||a.eeo_jobcode_group eeo_jobcode_group,
+						 
+                         case 
+                             when a.um_jobcode_group in ('AA', 'AP', 'FA')
+                                 then e.academic_title
+                             else e.non_academic_title
+                         end eeo_jobcode_group_descr,
+						 
+						 count (a.emplid) total_workforce,
+						 
+                         <!---     female     --->
+						 
+						 sum(decode (a.sex, 'F', 1, 0)) female_workforce,
+                         c.fem_avail_tot as fem_avail_pct,
+                         round((count (a.emplid) * c.fem_avail_tot/100),1) goal_fem,
+                         case
+                             when sum(decode (a.sex, 'F', 1, 0)) - round((count (a.emplid) * c.fem_avail_tot/100),1) <0 
+                                 then sum(decode (a.sex, 'F', 1, 0))  - round((count (a.emplid) * c.fem_avail_tot/100),1)
+                             else 0
+                         end ntg_fem,
+						 
+                         <!---     minority     --->
+						 
+						 sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) as minority_workforce,
+						 
+						 c.min_avail_tot as min_avail_pct,
+                         round((count (a.emplid)*c.min_avail_tot/100),1) goal_min,
+                         case
+                             when sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) - round((count (a.emplid)*c.min_avail_tot/100),1) < 0
+                                 then sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) - round((count (a.emplid)*c.min_avail_tot/100),1)
+                             else 0
+                         end ntg_min,
+						 
+						 <!---     disabled     --->
+						 
+						 sum(decode (a.disabled, 'Y', 1, 0)) as disabled_workforce,
+						 
+						 d.disabled as dis_avail_pct,
+						 round((count (a.emplid) * d.disabled/100),1) goal_dis,
+						 case
+                             when sum(decode (a.disabled, 'Y', 1, 0)) - round((count (a.emplid) * d.disabled/100),1) < 0 
+                                 then sum(decode (a.disabled, 'Y', 1, 0)) - round((count (a.emplid) * d.disabled/100),1)
+                             else 0
+                         end ntg_dis,
+						 
+						 <!---     veteran     --->
+						 
+						 sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) as veteran_workforce,
+								  
+						 d.veteran as vet_avail_pct,
+						 round((count (a.emplid) * d.veteran/100),1) goal_vet,
+						 case
+                             when sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) - round((count (a.emplid) * d.veteran/100),1) < 0
+                                 then sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) - round((count (a.emplid) * d.veteran/100),1)
+                             else 0
+                         end ntg_vet
+
+                from     oiradm.ps_dweo_person_prim_job_evw a,
+                         oirweb2.eoaa_aap2factor_data c,
+						 oirweb2.eoaa_aap2factor_years d,
+                         oiradm.ps_eeo_jobcode_group_tbl e
+						 
+                where    a.um_jobcode_group = c.um_jobcode_grp
+                  and    a.ipedsscode||a.eeo_jobcode_group = c.combined_eeo_job_group(+)
+                  and    a.ipedsscode = e.ipedsscode(+)
+                  and    a.eeo_jobcode_group = e.eeo_jobcode_group(+)
+				  and    c.goal_year = d.goal_year
+				  
+                  and    a.jobcode not in ('0001','0004','0007','0011')
+                  and    a.deptid not in ('10098','12024','12025','12058','12192')
+                  and    a.ipedsscode not in ('N')
+                  and    a.um_campus in ('#PositionInfo.um_campus#')
+                  and    (a.most_recent_payroll = '#MaxMostRecentPayroll.max_most_recent_payroll#'
+                             or a.empl_status in ('L', 'P', 'W'))
+                  and    a.um_jobcode_group in ('#PositionInfo.um_jobcode_group#')
+				  and    (a.ipedsscode||a.eeo_jobcode_group) in ('#PositionInfo.eeo_jobcode_group#')
+				  
+                  and    c.web_avail = 'TRUE'
+                  and    c.campus_code in ('#PositionInfo.um_campus#')
+                  and    c.goal_year = '#MaxGoalYear.max_goal_year#'
+                  and    c.um_jobcode_grp in ('#PositionInfo.um_jobcode_group#')
+
+                group by a.um_campus_descr,
+				         a.um_jobcode_group, 
+                         a.ipedsscode,
+                         a.eeo_jobcode_group,
+                         a.um_jobcode_group_descr,
+                         e.academic_title,
+                         e.non_academic_title,
+                         c.fem_avail_tot,
+                         c.min_avail_tot,
+                         d.disabled,
+                         d.veteran
+
+                order by a.um_jobcode_group, eeo_jobcode_group	 
+
+            </cfquery>
+			
+			<cfif #GoalInformation.RecordCount# equal 1>
+
+			    <table width="750" border="0" cellpadding="0" cellspacing="10">
+			
+			    <cfoutput query="GoalTitle">
+
+			    <tr>
+			    <td align="left" colspan="5">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <cfset todayDate = Now()>
+			    <b>Date:</b> #DateFormat(todayDate, "mmm-dd-yyyy")#<br />
+			    <b>Payroll period: </b>#MaxMostRecentPayroll.max_most_recent_payroll#<br /><br />
+			    </td>
+			    </tr>
+
+			    <tr>
+			    <td align="center" colspan="6">
+			    <b>#goal_title1#</b><br />
+			    <b>#goal_title2#</b><br /><br />
+			    </td>
+			    </tr>
+			
+			    </cfoutput>
+
+			    <cfoutput query="GoalInformation">
+			
+			    <tr>
+			    <td align="left" colspan="2">
+			    <b>Campus</b>:<br />
+			    <b>UM Jobcode Group</b>:<br />
+			    <b>EEO Jobcode Group</b>:<br /><br />
+			    </td>
+			    <td align="left" colspan="4">
+			    #um_campus_descr#<br />
+			    #um_jobcode_group# #um_jobcode_group_descr#<br />
+			    #eeo_jobcode_group# #eeo_jobcode_group_descr#<br /><br />
+                </td>
+			    </tr>
+			
+		        <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    &nbsp;
+                </td>	
+			    <td align="center">
+			    <b>Workforce Utilization</b>
+                </td>
+			    <td align="center">
+			    <b>% Availability</b>
+                </td>	
+			    <td align="center">
+			    <b>Goal</b>
+                </td>	
+			    <td align="center">
+			    <b>Number to Goal</b>
+                </td>
+			    </tr>
+			
+			    <tr>
+			    <td align="center" colspan="6">
+			    &nbsp;
+			    </td>
+			    </tr>
+				
+			    <tr>
+			    <td width="30" align="left">
+			    &nbsp;
+                </td>
+			    <td width="150" align="left">
+			    <b>Total</b>:
+                </td>	
+			    <td width="150" align="center" valign="top">
+			    #numberformat(total_workforce)#
+                </td>	
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>	
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>	
+			    </tr>
+			
+			    <tr>
+			    <td align="center" colspan="6">
+			    &nbsp;
+			    </td>
+			    </tr>
+				
+				<tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Female</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(female_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+                <b>#NumberFormat(fem_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_fem,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_fem * -1#</b>
+                </td>	
+			    </tr>
+						
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Minority</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(minority_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#NumberFormat(min_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_min,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_min * -1#</b>
+                </td>
+			    </tr>
+		
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Indiv. with Disabilities</b>:
+                </td>	
+			    <td align="center" valign="bottom">
+			    #numberformat(disabled_workforce)#
+                </td>	
+			    <td align="center" valign="bottom">
+				<b>#NumberFormat(dis_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="bottom">
+			    #numberformat(goal_dis,'_,___._')#
+                </td>	
+			    <td align="center" valign="bottom">
+			    <b>#ntg_dis * -1#</b>
+                </td>	
+			    </tr>
+						
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Protected Veteran</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(veteran_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+				<b>#NumberFormat(vet_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_vet,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_vet * -1#</b>
+                </td>
+			    </tr>
+
+			    <tr>
+			    <td align="left" colspan="6">
+			
+			    <!--- log request --->
+                <cfinclude template="updaterequestlogdb.cfm">
+
+			    <br /><br />
+                </td>
+			    </tr>
+
+                <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                    <cfcase value="Y">
+
+			            <tr>
+			            <td align="left" colspan="6">
+			            <b>Data for request log:</b><br />
+					    InternetID: #SESSION.OIR2.InternetID# <br />
+					    Name: #SESSION.SHIB.displayName# <br />
+					    Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					    Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					    Position number: #PositionInfo.position_nbr# <br />
+					    Campus: #PositionInfo.um_campus# <br />
+					    Entity: #PositionInfo.um_entity# <br />
+					    Entity description: #PositionInfo.um_entity_descr# <br />
+					    Department: #PositionInfo.deptid# <br />
+					    Department description: #PositionInfo.deptid_descr# <br />
+					    Location: #PositionInfo.location# <br />
+					    Jobcode: #PositionInfo.jobcode# <br />
+					    Jobcode description: #PositionInfo.jobcode_descr# <br />
+					    UM Jobcode group: #um_jobcode_group# <br />
+					    UM Jobcode group description: #um_jobcode_group_descr# <br />
+					    EEO Jobcode group: #eeo_jobcode_group# <br />
+					    EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					    Total workforce: #numberformat(total_workforce)# <br />
+					    Female workforce: #numberformat(female_workforce)# <br />
+					    Female availability: #fem_avail_pct# <br />
+					    Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					    Female number to goal: #ntg_fem * -1# <br />
+					    Minority workforce: #numberformat(minority_workforce)# <br />
+					    Minority availability: #min_avail_pct# <br />
+					    Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					    Minority number to goal: #ntg_min * -1# <br />
+					    <br /><br />
+                        </td>
+			            </tr>
+
+                    </cfcase>
+
+                </cfswitch>   <!--- goal_setting_testing --->
+			
+			    </cfoutput>
+			
+			    <tr>
+			    <td align="left" colspan="6">
+			
+                <strong>Workforce Utilization:</strong>
+                <br />
+                Full-and part-time employees, who were paid or on a leave with or without pay, as of the date of the pay period ending immediately prior to this report. The data is collected from the University's PeopleSoft HRMS Database.
+                <br /><br />
+
+                <strong>% Availability:</strong>
+                <br />
+                Compiled in accordance with federal guidelines, the University's best estimate of the percentage of qualified women, minorities, individuals with disabilities, and protected veterans available in a well-represented hiring pool for a given EEO Jobcode group.
+                <br /><br />
+
+                <strong>Goal:</strong>
+                <br />
+                The number of women, minorities, individuals with disabilities, and protected veterans the University reasonably expects would be employed at the University given their estimated availability in that Jobcode group when equal employment principles are applied.
+                <br /><br />
+				
+                <strong>Number To Goal:</strong>
+                <br />
+                The number of women, minorities, individuals with disabilities, and protected veterans the University would need to hire in order to meet its goal (underutilization).
+                <br /><br />
+				
+                </td>
+			    </tr>
+
+			    </table>
+					
+                <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                    <cfcase value="Y">
+
+                        <cfoutput query="PositionInfo">
+                        <b>Case: CS or LR</b><br /><br />
+                        Max Most recent payroll: #MaxMostRecentPayroll.max_most_recent_payroll#<br />
+                        Max Goal year: #MaxGoalYear.max_goal_year#<br />
+                        UM Jobcode group: #um_jobcode_group#<br />
+                        EEO Jobcode group: #eeo_jobcode_group#<br />
+                        Campus: #um_campus#<br />
+                        UM_entity: #um_entity#<br />
+                        <br />
+                        Rows returned: #GoalInformation.RecordCount#
+                        <br /><br />
+                        </cfoutput>
+			
+                        <br /><br />
+
+                    </cfcase>
+
+                </cfswitch>   <!--- goal_setting_testing --->
+
+			<cfelse>
+			
+			    No workforce data.<br />
+				Please contact the help desk, <a href="mailto:help@umn.edu">help@umn.edu</a> or 1-4357.<br />
+		        Please mention that you are using the EOAA - Goal Setting application, give them the position number, and ask that the ticket be referred to the T2 - Office of Institutional Research group.<br /><br />
+			
+			</cfif>
+
+		</cfcase>
+	    <cfcase value="FA"> 
+		
+			<!---   get goal information   --->
+            <cfquery name="GoalInformation" datasource=#GoalSettingDataSource#>
+
+                select   case 
+                             when a.um_jobcode_group in ('AA', 'AP')
+                                 then 'Professional and Administrative Goals SYSTEMWIDE'
+                             when a.um_jobcode_group in ('CS')
+                                 then 'Civil Service Goals by CAMPUS'
+                             when a.um_jobcode_group in ('LR')
+                                 then 'Labor Represented Goals by CAMPUS'
+                             else 'Faculty Goals by ENTITY'
+                         end GOALS,
+						 
+                         a.um_campus_descr,
+                         a.um_college_descr,
+                         c.um_entity,
+                         c.um_entity_descr,
+
+                         case
+                             when a.eeo_jobcode_group in ('A')
+                                 then 'Tenured'
+                             when a.eeo_jobcode_group in ('B')
+                                 then 'Tenure-Track'
+                             else 'Term'
+                         end TENURE,
+ 
+                         a.um_jobcode_group,
+                         a.um_jobcode_group_descr,
+                         a.ipedsscode||a.eeo_jobcode_group eeo_jobcode_group,
+						 
+                         case 
+                             when a.um_jobcode_group in ('AA', 'AP', 'FA')
+                                 then e.academic_title
+                             else e.non_academic_title
+                         end eeo_jobcode_group_descr,
+						 
+						 count (a.emplid) total_workforce,
+						 
+                         <!---     female     --->
+						 
+						 sum(decode (a.sex, 'F', 1, 0)) female_workforce,
+                         c.fem_avail_tot as fem_avail_pct,
+                         round((count (a.emplid) * c.fem_avail_tot/100),1) goal_fem,
+                         case
+                             when sum(decode (a.sex, 'F', 1, 0)) - round((count (a.emplid) * c.fem_avail_tot/100),1) <0 
+                                 then sum(decode (a.sex, 'F', 1, 0))  - round((count (a.emplid) * c.fem_avail_tot/100),1)
+                             else 0
+                         end ntg_fem,
+						 
+                         <!---     minority     --->
+						 
+						 sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) as minority_workforce,
+						 
+						 c.min_avail_tot as min_avail_pct,
+                         round((count (a.emplid)*c.min_avail_tot/100),1) goal_min,
+                         case
+                             when sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) - round((count (a.emplid)*c.min_avail_tot/100),1) < 0
+                                 then sum(case when a.multi_re_indicator in ('2', '3', '4', '5', '7', 'H', 'M') then 1 else 0 end) - round((count (a.emplid)*c.min_avail_tot/100),1)
+                             else 0
+                         end ntg_min,
+						 
+						 <!---     disabled     --->
+						 
+						 sum(decode (a.disabled, 'Y', 1, 0)) as disabled_workforce,
+						 
+						 d.disabled as dis_avail_pct,
+						 round((count (a.emplid) * d.disabled/100),1) goal_dis,
+						 case
+                             when sum(decode (a.disabled, 'Y', 1, 0)) - round((count (a.emplid) * d.disabled/100),1) < 0 
+                                 then sum(decode (a.disabled, 'Y', 1, 0)) - round((count (a.emplid) * d.disabled/100),1)
+                             else 0
+                         end ntg_dis,
+						 
+						 <!---     veteran     --->
+						 
+						 sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) as veteran_workforce,
+								  
+						 d.veteran as vet_avail_pct,
+						 round((count (a.emplid) * d.veteran/100),1) goal_vet,
+						 case
+                             when sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) - round((count (a.emplid) * d.veteran/100),1) < 0
+                                 then sum(case when (a.disabled_vet in ('Y') or a.military_status in ('4', 'A', 'F', 'O', 'R', 'S')) then 1 else 0 end) - round((count (a.emplid) * d.veteran/100),1)
+                             else 0
+                         end ntg_vet
+
+                from     oiradm.ps_dweo_person_prim_job_evw a,
+                         oirweb2.eoaa_aap2factor_data c,
+						 oirweb2.eoaa_aap2factor_years d,
+                         oiradm.ps_eeo_jobcode_group_tbl e,
+						 oiradm.ps_dwhr_um_entity_zdeptid_map f
+						 
+                where    a.um_jobcode_group = c.um_jobcode_grp
+                  and    a.ipedsscode||a.eeo_jobcode_group = c.combined_eeo_job_group(+)
+                  and    a.ipedsscode = e.ipedsscode(+)
+                  and    a.eeo_jobcode_group = e.eeo_jobcode_group(+)
+				  and    a.deptid = f.deptid
+				  and    c.goal_year = d.goal_year
+				  and    c.um_entity = f.um_entity
+				  
+                  and    a.jobcode not in ('0001','0004','0007','0011')
+                  and    a.um_zdeptid not like '999%'
+                  and    a.um_zdeptid not in ('Z0387','Z0476')
+				  and    a.ipedsscode not in ('N')
+                  and    a.um_campus in ('#PositionInfo.um_campus#')
+                  and    (a.most_recent_payroll = '#MaxMostRecentPayroll.max_most_recent_payroll#'
+                             or a.empl_status in ('L', 'P', 'W'))
+                  and    a.um_jobcode_group in ('#PositionInfo.um_jobcode_group#')
+				  
+                  and    c.web_avail = 'TRUE'
+                  and    c.campus_code in ('#PositionInfo.um_campus#')
+                  and    c.goal_year = '#MaxGoalYear.max_goal_year#'
+                  and    c.um_jobcode_grp in ('#PositionInfo.um_jobcode_group#')
+				  
+				  and    f.um_entity = '#PositionInfo.um_entity#'
+
+                group by a.um_campus_descr,
+                         a.um_college_descr,
+                         c.um_entity,
+                         c.um_entity_descr,
+				         a.um_jobcode_group, 
+                         a.ipedsscode,
+                         a.eeo_jobcode_group,
+                         a.um_jobcode_group_descr,
+                         e.academic_title,
+                         e.non_academic_title,
+                         c.fem_avail_tot,
+                         c.min_avail_tot,
+                         d.disabled,
+                         d.veteran
+
+                order by a.um_campus_descr, a.um_college_descr, c.um_entity, a.ipedsscode, a.eeo_jobcode_group	 
+
+            </cfquery>
+			
+			<cfif #GoalInformation.RecordCount# equal 3>
+			
+			    <table width="750" border="0" cellpadding="0" cellspacing="10">
+			
+			    <cfoutput query="GoalTitle">
+
+			    <tr>
+			    <td align="left" colspan="5">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <cfset todayDate = Now()>
+			    <b>Date:</b> #DateFormat(todayDate, "mmm-dd-yyyy")#<br />
+			    <b>Payroll period: </b>#MaxMostRecentPayroll.max_most_recent_payroll#<br /><br />
+			    </td>
+			    </tr>
+
+			    <tr>
+			    <td colspan="6" align="center">
+			    <b>#goal_title1#</b><br />
+			    <b>#goal_title2#</b><br /><br />
+			    </td>
+			    </tr>
+			
+			    </cfoutput>
+
+			    <cfoutput query="GoalInformation" group="um_jobcode_group">
+			
+			    <tr>
+			    <td align="left" colspan="2">
+			    <b>UM Entity</b>:<br />
+			    <b>UM Jobcode Group</b>:<br />
+			    </td>
+			    <td align="left" colspan="4">
+			    #um_entity_descr#<br />
+			    #um_jobcode_group# #um_jobcode_group_descr#<br />
+                </td>
+			    </tr>
+			
+			    <cfoutput>
+			
+			    <tr>
+			    <td align="left" colspan="2">
+			    <b>EEO Jobcode Group</b>:<br /><br />
+			    </td>
+			    <td align="left" colspan="4">
+			    #eeo_jobcode_group# #eeo_jobcode_group_descr#<br /><br />
+                </td>
+			    </tr>
+
+		        <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    &nbsp;
+                </td>	
+			    <td align="center">
+			    <b>Workforce Utilization</b>
+                </td>
+			    <td align="center">
+			    <b>% Availability</b>
+                </td>	
+			    <td align="center">
+			    <b>Goal</b>
+                </td>	
+			    <td align="center">
+			    <b>Number to Goal</b>
+                </td>
+			    </tr>
+			
+			    <tr>
+			    <td align="center" colspan="6">
+			    &nbsp;
+			    </td>
+			    </tr>
+				
+			    <tr>
+			    <td width="30" align="left">
+			    &nbsp;
+                </td>
+			    <td width="150" align="left">
+			    <b>Total</b>:
+                </td>	
+			    <td width="150" align="center" valign="top">
+			    #numberformat(total_workforce)#
+                </td>	
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>	
+			    <td width="150" align="center">
+			    &nbsp;
+                </td>	
+			    </tr>
+			
+			    <tr>
+			    <td align="center" colspan="6">
+			    &nbsp;
+			    </td>
+			    </tr>
+				
+				<tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Female</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(female_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+                <b>#NumberFormat(fem_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_fem,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_fem * -1#</b>
+                </td>	
+			    </tr>
+						
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Minority</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(minority_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#NumberFormat(min_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_min,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_min * -1#</b>
+                </td>
+			    </tr>
+		
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Indiv. with Disabilities</b>:
+                </td>	
+			    <td align="center" valign="bottom">
+			    #numberformat(disabled_workforce)#
+                </td>	
+			    <td align="center" valign="bottom">
+				<b>#NumberFormat(dis_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="bottom">
+			    #numberformat(goal_dis,'_,___._')#
+                </td>	
+			    <td align="center" valign="bottom">
+			    <b>#ntg_dis * -1#</b>
+                </td>	
+			    </tr>
+						
+			    <tr>
+			    <td align="left">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <b>Protected Veteran</b>:
+                </td>	
+			    <td align="center" valign="top">
+			    #numberformat(veteran_workforce)#
+                </td>	
+			    <td align="center" valign="top">
+				<b>#NumberFormat(vet_avail_pct,'999.99')# %</b>
+                </td>
+			    <td align="center" valign="top">
+			    #numberformat(goal_vet,'_,___._')#
+                </td>	
+			    <td align="center" valign="top">
+			    <b>#ntg_vet * -1#</b>
+                </td>
+			    </tr>
+				
+			    <tr>
+			    <td align="left" colspan="6">
+			
+			    <!--- log request --->
+                <cfinclude template="updaterequestlogdb.cfm">
+
+			    <br /><br />
+                </td>
+			    </tr>
+
+                <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                    <cfcase value="Y">
+
+			            <tr>
+			            <td align="left" colspan="6">
+			            <b>Data for request log:</b><br />
+					    InternetID: #SESSION.OIR2.InternetID# <br />
+					    Name: #SESSION.SHIB.displayName# <br />
+					    Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					    Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					    Position number: #PositionInfo.position_nbr# <br />
+					    Campus: #PositionInfo.um_campus# <br />
+					    Entity: #PositionInfo.um_entity# <br />
+					    Entity description: #PositionInfo.um_entity_descr# <br />
+					    Department: #PositionInfo.deptid# <br />
+					    Department description: #PositionInfo.deptid_descr# <br />
+					    Location: #PositionInfo.location# <br />
+					    Jobcode: #PositionInfo.jobcode# <br />
+					    Jobcode description: #PositionInfo.jobcode_descr# <br />
+					    UM Jobcode group: #um_jobcode_group# <br />
+					    UM Jobcode group description: #um_jobcode_group_descr# <br />
+					    EEO Jobcode group: #eeo_jobcode_group# <br />
+					    EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					    Total workforce: #numberformat(total_workforce)# <br />
+					    Female workforce: #numberformat(female_workforce)# <br />
+					    Female availability: #fem_avail_pct# <br />
+					    Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					    Female number to goal: #ntg_fem * -1# <br />
+					    Minority workforce: #numberformat(minority_workforce)# <br />
+					    Minority availability: #min_avail_pct# <br />
+					    Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					    Minority number to goal: #ntg_min * -1# <br />
+					    <br /><br />
+                        </td>
+			            </tr>
+					
+                    </cfcase>
+
+                </cfswitch>   <!--- goal_setting_testing --->
+			
+			    </cfoutput>
+			
+			    </cfoutput>
+				
+			    <tr>
+			    <td align="left" colspan="6">
+			
+                <strong>Workforce Utilization:</strong>
+                <br />
+                Full-and part-time employees, who were paid or on a leave with or without pay, as of the date of the pay period ending immediately prior to this report. The data is collected from the University's PeopleSoft HRMS Database.
+                <br /><br />
+
+                <strong>% Availability:</strong>
+                <br />
+                Compiled in accordance with federal guidelines, the University's best estimate of the percentage of qualified women, minorities, individuals with disabilities, and protected veterans available in a well-represented hiring pool for a given EEO Jobcode group.
+                <br /><br />
+
+                <strong>Goal:</strong>
+                <br />
+                The number of women, minorities, individuals with disabilities, and protected veterans the University reasonably expects would be employed at the University given their estimated availability in that Jobcode group when equal employment principles are applied.
+                <br /><br />
+				
+                <strong>Number To Goal:</strong>
+                <br />
+                The number of women, minorities, individuals with disabilities, and protected veterans the University would need to hire in order to meet its goal (underutilization).
+                <br /><br />
+				
+                </td>
+			    </tr>
+				
+			    </table>
+
+                <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                    <cfcase value="Y">
+
+                        <cfoutput query="PositionInfo">
+                        <b>Case: FA</b><br /><br />
+                        Max Most recent payroll: #MaxMostRecentPayroll.max_most_recent_payroll#<br />
+                        Max Goal year: #MaxGoalYear.max_goal_year#<br />
+                        UM Jobcode group: #um_jobcode_group#<br />
+                        EEO Jobcode group: #eeo_jobcode_group#<br />
+                        Campus: #um_campus#<br />
+                        UM_entity: #um_entity#<br />
+                        <br />
+                        Rows returned: #GoalInformation.RecordCount#
+                        <br /><br />
+                        </cfoutput>
+			
+                        <br /><br />
+
+                    </cfcase>
+
+                </cfswitch>   <!--- goal_setting_testing --->
+				
+			<cfelse>     <!--- GoalInformation.RecordCount less than 3  --->
+			
+                <!---   get goal information   --->
+                <cfquery name="AAP2FactorInformation" datasource=#GoalSettingDataSource#>
+
+                    select   a.goal_year,
+					         a.campus_code,
+							 a.um_entity,
+                             a.um_entity_descr,
+                             a.um_jobcode_grp um_jobcode_group,
+							 a.um_jobcode_grp_descr um_jobcode_group_descr,
+							 a.combined_EEO_job_group eeo_jobcode_group,
+							 e.academic_title eeo_jobcode_group_descr,
+							 -1 as total_workforce,
+							 -1 as female_workforce,
+							 a.fem_avail_tot fem_avail_pct,
+							 0 as goal_fem,
+							 0 as ntg_fem,
+							 -1 as minority_workforce,
+                             a.min_avail_tot min_avail_pct,
+							 0 as goal_min,
+							 0 as ntg_min
+                    from     oirweb2.eoaa_aap2factor_data a,
+					         oiradm.ps_eeo_jobcode_group_tbl e
+                    where    a.eeo_jobcode_group = e.eeo_jobcode_group
+					  and    a.ipedsscode = e.ipedsscode
+					  and    a.goal_year = '#MaxGoalYear.max_goal_year#'	  
+                      and    a.campus_code = '#PositionInfo.um_campus#'
+					  and    a.um_entity = '#PositionInfo.um_entity#'
+					  and    a.um_jobcode_grp = '#PositionInfo.um_jobcode_group#'
+					  and    a.web_avail = 'TRUE'
+                    order by a.um_jobcode_grp	 
+
+                </cfquery>
+			
+			    <cfset session.2a_flag = 'N'>
+				<cfset session.2b_flag = 'N'>
+				<cfset session.2c_flag = 'N'>
+			
+			    <cfloop query="GoalInformation">
+				
+				    <cfif #eeo_jobcode_group# equal '2A'>
+					    <cfset session.2a_flag = 'Y'>
+					</cfif>
+				    <cfif #eeo_jobcode_group# equal '2B'>
+					    <cfset session.2b_flag = 'Y'>
+					</cfif>
+				    <cfif #eeo_jobcode_group# equal '2C'>
+					    <cfset session.2c_flag = 'Y'>
+					</cfif>
+					
+				</cfloop>
+						    
+			    <table width="750" border="0" cellpadding="0" cellspacing="10">
+			
+			    <cfoutput query="GoalTitle">
+
+			    <tr>
+			    <td align="left" colspan="5">
+			    &nbsp;
+                </td>
+			    <td align="left">
+			    <cfset todayDate = Now()>
+			    <b>Date:</b> #DateFormat(todayDate, "mmm-dd-yyyy")#<br />
+			    <b>Payroll period: </b>#MaxMostRecentPayroll.max_most_recent_payroll#<br /><br />
+			    </td>
+			    </tr>
+
+			    <tr>
+			    <td colspan="6" align="center">
+			    <b>#goal_title1#</b><br />
+			    <b>#goal_title2#</b><br /><br />
+			    </td>
+			    </tr>
+			
+			    </cfoutput>
+
+			    <cfoutput query="GoalInformation" group="um_jobcode_group">
+			
+			    <tr>
+			    <td align="left" colspan="2">
+			    <b>UM Entity</b>:<br />
+			    <b>UM Jobcode Group</b>:<br /><br />
+			    </td>
+			    <td align="left" colspan="4">
+			    #um_entity_descr#<br />
+			    #um_jobcode_group# #um_jobcode_group_descr#<br /><br />
+                </td>
+			    </tr>
+				
+				</cfoutput>
+
+			    <cfswitch expression=#session.2a_flag#>
+				
+				    <cfcase value = "Y">
+					
+						<cfoutput query="GoalInformation">
+						
+						<cfif #eeo_jobcode_group# equal '2A'>
+
+			                <tr>
+			                <td align="left" colspan="2">
+			                <b>EEO Jobcode Group</b>:<br />
+			                </td>
+			                <td align="left" colspan="4">
+			                #eeo_jobcode_group# #eeo_jobcode_group_descr#<br />
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                &nbsp;
+                            </td>	
+			                <td align="center">
+			                <b>Workforce Utilization</b>
+                            </td>
+			                <td align="center">
+			                <b>% Availability</b>
+                            </td>	
+			                <td align="center">
+			                <b>Goal</b>
+                            </td>	
+			                <td align="center">
+			                <b>Number to Goal</b>
+                            </td>
+			                </tr>
+			
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+			                <tr>
+			                <td width="30" align="left">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="left">
+			                <b>Total</b>:
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                #numberformat(total_workforce)#
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                </tr>
+				
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+				            <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Female</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(female_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(fem_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_fem,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_fem * -1#</b>
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Minority</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(minority_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(min_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_min,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_min * -1#</b>
+                            </td>
+			                </tr>
+				
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Indiv. with Disabilities</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(disabled_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(dis_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_dis,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_dis * -1#</b>
+                            </td>
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Protected Veteran</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(veteran_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(vet_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_vet,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_vet * -1#</b>
+                            </td>
+			                </tr>
+				
+			                <tr>
+			                <td align="left" colspan="6">
+			
+			                <!--- log request --->
+                            <cfinclude template="updaterequestlogdb.cfm">
+
+			                <br /><br />
+                            </td>
+			                </tr>
+
+                            <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                                <cfcase value="Y">
+
+			                        <tr>
+			                        <td align="left" colspan="6">
+			                        <b>Data for request log:</b><br />
+					                InternetID: #SESSION.OIR2.InternetID# <br />
+					                Name: #SESSION.SHIB.displayName# <br />
+					                Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					                Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					                Position number: #PositionInfo.position_nbr# <br />
+					                Campus: #PositionInfo.um_campus# <br />
+					                Entity: #PositionInfo.um_entity# <br />
+					                Entity description: #PositionInfo.um_entity_descr# <br />
+					                Department: #PositionInfo.deptid# <br />
+					                Department description: #PositionInfo.deptid_descr# <br />
+					                Location: #PositionInfo.location# <br />
+					                Jobcode: #PositionInfo.jobcode# <br />
+					                Jobcode description: #PositionInfo.jobcode_descr# <br />
+					                UM Jobcode group: #um_jobcode_group# <br />
+					                UM Jobcode group description: #um_jobcode_group_descr# <br />
+					                EEO Jobcode group: #eeo_jobcode_group# <br />
+					                EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					                Total workforce: #numberformat(total_workforce)# <br />
+					                Female workforce: #numberformat(female_workforce)# <br />
+					                Female availability: #fem_avail_pct# <br />
+					                Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					                Female number to goal: #ntg_fem * -1# <br />
+					                Minority workforce: #numberformat(minority_workforce)# <br />
+					                Minority availability: #min_avail_pct# <br />
+					                Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					                Minority number to goal: #ntg_min * -1# <br />
+					                <br /><br />
+                                    </td>
+			                        </tr>
+					
+                                </cfcase>
+
+                            </cfswitch>   <!--- goal_setting_testing --->
+			
+			            </cfif>
+						
+						</cfoutput>
+			
+					</cfcase>
+				
+				    <cfcase value = "N">
+					
+					<cfoutput query="AAP2FactorInformation">
+						
+						<cfif #eeo_jobcode_group# equal '2A'>
+
+			                <tr>
+			                <td align="left" colspan="2">
+			                <b>EEO Jobcode Group</b>:<br />
+			                </td>
+			                <td align="left" colspan="4">
+			                #eeo_jobcode_group# #eeo_jobcode_group_descr#<br />
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                &nbsp;
+                            </td>	
+			                <td align="center">
+			                <b>Workforce Utilization</b>
+                            </td>
+			                <td align="center">
+			                <b>% Availability</b>
+                            </td>	
+			                <td align="center">
+			                <b>Goal</b>
+                            </td>	
+			                <td align="center">
+			                <b>Number to Goal</b>
+                            </td>
+			                </tr>
+							
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+			                <tr>
+			                <td width="30" align="left">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="left">
+			                <b>Total</b>:
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                ***<!---#numberformat(total_workforce)#--->
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                </tr>
+			
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Female</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(female_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(fem_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_fem,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_fem * -1#</b>--->
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Minority</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(minority_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(min_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_min,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_min * -1#</b>--->
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Indiv. with Disabilities</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(disabled_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(dis_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_dis,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_dis * -1#</b>--->
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Protected Veteran</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(veteran_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(vet_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_vet,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_vet * -1#</b>--->
+                            </td>
+			                </tr>
+							
+							<tr>
+			                <td align="left" colspan="6">
+			
+			                <!--- log request --->
+                            <cfinclude template="updaterequestlogdb.cfm">
+
+			                <br /><br />
+                            </td>
+			                </tr>
+							
+							<cfswitch expression=#SESSION.goal_setting_testing#>
+
+                                <cfcase value="Y">
+
+			                        <tr>
+			                        <td align="left" colspan="6">
+			                        <b>Data for request log:</b><br />
+					                InternetID: #SESSION.OIR2.InternetID# <br />
+					                Name: #SESSION.SHIB.displayName# <br />
+					                Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					                Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					                Position number: #PositionInfo.position_nbr# <br />
+					                Campus: #PositionInfo.um_campus# <br />
+					                Entity: #PositionInfo.um_entity# <br />
+					                Entity description: #PositionInfo.um_entity_descr# <br />
+					                Department: #PositionInfo.deptid# <br />
+					                Department description: #PositionInfo.deptid_descr# <br />
+					                Location: #PositionInfo.location# <br />
+					                Jobcode: #PositionInfo.jobcode# <br />
+					                Jobcode description: #PositionInfo.jobcode_descr# <br />
+					                UM Jobcode group: #um_jobcode_group# <br />
+					                UM Jobcode group description: #um_jobcode_group_descr# <br />
+					                EEO Jobcode group: #eeo_jobcode_group# <br />
+					                EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					                Total workforce: #numberformat(total_workforce)# <br />
+					                Female workforce: #numberformat(female_workforce)# <br />
+					                Female availability: #fem_avail_pct# <br />
+					                Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					                Female number to goal: #ntg_fem * -1# <br />
+					                Minority workforce: #numberformat(minority_workforce)# <br />
+					                Minority availability: #min_avail_pct# <br />
+					                Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					                Minority number to goal: #ntg_min * -1# <br />
+					                <br /><br />
+                                    </td>
+			                        </tr>
+					
+                                </cfcase>
+
+                            </cfswitch>   <!--- goal_setting_testing --->
+							
+					    </cfif>
+						
+					</cfoutput>
+					
+					</cfcase>
+					
+		        </cfswitch>   <!--- 2a_flag --->
+				
+			    <cfswitch expression=#session.2b_flag#>
+				
+				    <cfcase value="Y">
+					
+						<cfoutput query="GoalInformation">
+						
+						<cfif #eeo_jobcode_group# equal '2B'>
+
+			                <tr>
+			                <td align="left" colspan="2">
+			                <b>EEO Jobcode Group</b>:<br />
+			                </td>
+			                <td align="left" colspan="4">
+			                #eeo_jobcode_group# #eeo_jobcode_group_descr#<br />
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                &nbsp;
+                            </td>	
+			                <td align="center">
+			                <b>Workforce Utilization</b>
+                            </td>
+			                <td align="center">
+			                <b>% Availability</b>
+                            </td>	
+			                <td align="center">
+			                <b>Goal</b>
+                            </td>	
+			                <td align="center">
+			                <b>Number to Goal</b>
+                            </td>
+			                </tr>
+			
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+			                <tr>
+			                <td width="30" align="left">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="left">
+			                <b>Total</b>:
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                #numberformat(total_workforce)#
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                </tr>
+				
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+				            <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Female</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(female_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(fem_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_fem,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_fem * -1#</b>
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Minority</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(minority_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(min_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_min,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_min * -1#</b>
+                            </td>
+			                </tr>
+				
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Indiv. with Disabilities</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(disabled_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(dis_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_dis,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_dis * -1#</b>
+                            </td>
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Protected Veteran</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(veteran_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(vet_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_vet,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_vet * -1#</b>
+                            </td>
+			                </tr>
+							
+			                <tr>
+			                <td align="left" colspan="6">
+			
+			                <!--- log request --->
+                            <cfinclude template="updaterequestlogdb.cfm">
+
+			                <br /><br />
+                            </td>
+			                </tr>
+
+                            <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                                <cfcase value="Y">
+
+			                        <tr>
+			                        <td align="left" colspan="6">
+			                        <b>Data for request log:</b><br />
+					                InternetID: #SESSION.OIR2.InternetID# <br />
+					                Name: #SESSION.SHIB.displayName# <br />
+					                Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					                Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					                Position number: #PositionInfo.position_nbr# <br />
+					                Campus: #PositionInfo.um_campus# <br />
+					                Entity: #PositionInfo.um_entity# <br />
+					                Entity description: #PositionInfo.um_entity_descr# <br />
+					                Department: #PositionInfo.deptid# <br />
+					                Department description: #PositionInfo.deptid_descr# <br />
+					                Location: #PositionInfo.location# <br />
+					                Jobcode: #PositionInfo.jobcode# <br />
+					                Jobcode description: #PositionInfo.jobcode_descr# <br />
+					                UM Jobcode group: #um_jobcode_group# <br />
+					                UM Jobcode group description: #um_jobcode_group_descr# <br />
+					                EEO Jobcode group: #eeo_jobcode_group# <br />
+					                EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					                Total workforce: #numberformat(total_workforce)# <br />
+					                Female workforce: #numberformat(female_workforce)# <br />
+					                Female availability: #fem_avail_pct# <br />
+					                Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					                Female number to goal: #ntg_fem * -1# <br />
+					                Minority workforce: #numberformat(minority_workforce)# <br />
+					                Minority availability: #min_avail_pct# <br />
+					                Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					                Minority number to goal: #ntg_min * -1# <br />
+					                <br /><br />
+                                    </td>
+			                        </tr>
+					
+                                </cfcase>
+
+                            </cfswitch>   <!--- goal_setting_testing --->
+			
+			            </cfif>
+						
+						</cfoutput>
+			
+					</cfcase>
+				
+				    <cfcase value="N">
+					
+					    <cfoutput query="AAP2FactorInformation">
+						
+						<cfif #eeo_jobcode_group# equal '2B'>
+
+			                <tr>
+			                <td align="left" colspan="2">
+			                <b>EEO Jobcode Group</b>:<br />
+			                </td>
+			                <td align="left" colspan="4">
+			                #eeo_jobcode_group# #eeo_jobcode_group_descr#<br />
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                &nbsp;
+                            </td>	
+			                <td align="center">
+			                <b>Workforce Utilization</b>
+                            </td>
+			                <td align="center">
+			                <b>% Availability</b>
+                            </td>	
+			                <td align="center">
+			                <b>Goal</b>
+                            </td>	
+			                <td align="center">
+			                <b>Number to Goal</b>
+                            </td>
+			                </tr>
+							
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+			                <tr>
+			                <td width="30" align="left">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="left">
+			                <b>Total</b>:
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                ***<!---#numberformat(total_workforce)#--->
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                </tr>
+			
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Female</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(female_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(fem_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_fem,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_fem * -1#</b>--->
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Minority</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(minority_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(min_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_min,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_min * -1#</b>--->
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Indiv. with Disabilities</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(disabled_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(dis_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_dis,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_dis * -1#</b>--->
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Protected Veteran</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(veteran_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(vet_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_vet,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_vet * -1#</b>--->
+                            </td>
+			                </tr>
+							
+							<tr>
+			                <td align="left" colspan="6">
+			
+			                <!--- log request --->
+                            <cfinclude template="updaterequestlogdb.cfm">
+
+			                <br /><br />
+                            </td>
+			                </tr>
+							
+							<cfswitch expression=#SESSION.goal_setting_testing#>
+
+                                <cfcase value="Y">
+
+			                        <tr>
+			                        <td align="left" colspan="6">
+			                        <b>Data for request log:</b><br />
+					                InternetID: #SESSION.OIR2.InternetID# <br />
+					                Name: #SESSION.SHIB.displayName# <br />
+					                Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					                Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					                Position number: #PositionInfo.position_nbr# <br />
+					                Campus: #PositionInfo.um_campus# <br />
+					                Entity: #PositionInfo.um_entity# <br />
+					                Entity description: #PositionInfo.um_entity_descr# <br />
+					                Department: #PositionInfo.deptid# <br />
+					                Department description: #PositionInfo.deptid_descr# <br />
+					                Location: #PositionInfo.location# <br />
+					                Jobcode: #PositionInfo.jobcode# <br />
+					                Jobcode description: #PositionInfo.jobcode_descr# <br />
+					                UM Jobcode group: #um_jobcode_group# <br />
+					                UM Jobcode group description: #um_jobcode_group_descr# <br />
+					                EEO Jobcode group: #eeo_jobcode_group# <br />
+					                EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					                Total workforce: #numberformat(total_workforce)# <br />
+					                Female workforce: #numberformat(female_workforce)# <br />
+					                Female availability: #fem_avail_pct# <br />
+					                Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					                Female number to goal: #ntg_fem * -1# <br />
+					                Minority workforce: #numberformat(minority_workforce)# <br />
+					                Minority availability: #min_avail_pct# <br />
+					                Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					                Minority number to goal: #ntg_min * -1# <br />
+					                <br /><br />
+                                    </td>
+			                        </tr>
+					
+                                </cfcase>
+
+                            </cfswitch>   <!--- goal_setting_testing --->
+							
+					    </cfif>
+						
+					</cfoutput>
+					
+					</cfcase>
+					
+		        </cfswitch>   <!--- 2b_flag --->
+
+			    <cfswitch expression=#session.2c_flag#>
+				
+				    <cfcase value="Y">
+					
+						<cfoutput query="GoalInformation">
+						
+						<cfif #eeo_jobcode_group# equal '2C'>
+
+			                <tr>
+			                <td align="left" colspan="2">
+			                <b>EEO Jobcode Group</b>:<br />
+			                </td>
+			                <td align="left" colspan="4">
+			                #eeo_jobcode_group# #eeo_jobcode_group_descr#<br />
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                &nbsp;
+                            </td>	
+			                <td align="center">
+			                <b>Workforce Utilization</b>
+                            </td>
+			                <td align="center">
+			                <b>% Availability</b>
+                            </td>	
+			                <td align="center">
+			                <b>Goal</b>
+                            </td>	
+			                <td align="center">
+			                <b>Number to Goal</b>
+                            </td>
+			                </tr>
+			
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+			                <tr>
+			                <td width="30" align="left">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="left">
+			                <b>Total</b>:
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                #numberformat(total_workforce)#
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                </tr>
+				
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+				            <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Female</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(female_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(fem_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_fem,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_fem * -1#</b>
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Minority</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(minority_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(min_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_min,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_min * -1#</b>
+                            </td>
+			                </tr>
+				
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Indiv. with Disabilities</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(disabled_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(dis_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_dis,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_dis * -1#</b>
+                            </td>
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Protected Veteran</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                #numberformat(veteran_workforce)#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#NumberFormat(vet_avail_pct,'999.99')# %</b>
+                            </td>
+			                <td align="center" valign="bottom">
+			                #numberformat(goal_vet,'_,___._')#
+                            </td>	
+			                <td align="center" valign="bottom">
+			                <b>#ntg_vet * -1#</b>
+                            </td>
+			                </tr>
+							
+			                <tr>
+			                <td align="left" colspan="6">
+			
+			                <!--- log request --->
+                            <cfinclude template="updaterequestlogdb.cfm">
+
+			                <br /><br />
+                            </td>
+			                </tr>
+
+                            <cfswitch expression=#SESSION.goal_setting_testing#>
+
+                                <cfcase value="Y">
+
+			                        <tr>
+			                        <td align="left" colspan="6">
+			                        <b>Data for request log:</b><br />
+					                InternetID: #SESSION.OIR2.InternetID# <br />
+					                Name: #SESSION.SHIB.displayName# <br />
+					                Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					                Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					                Position number: #PositionInfo.position_nbr# <br />
+					                Campus: #PositionInfo.um_campus# <br />
+					                Entity: #PositionInfo.um_entity# <br />
+					                Entity description: #PositionInfo.um_entity_descr# <br />
+					                Department: #PositionInfo.deptid# <br />
+					                Department description: #PositionInfo.deptid_descr# <br />
+					                Location: #PositionInfo.location# <br />
+					                Jobcode: #PositionInfo.jobcode# <br />
+					                Jobcode description: #PositionInfo.jobcode_descr# <br />
+					                UM Jobcode group: #um_jobcode_group# <br />
+					                UM Jobcode group description: #um_jobcode_group_descr# <br />
+					                EEO Jobcode group: #eeo_jobcode_group# <br />
+					                EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					                Total workforce: #numberformat(total_workforce)# <br />
+					                Female workforce: #numberformat(female_workforce)# <br />
+					                Female availability: #fem_avail_pct# <br />
+					                Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					                Female number to goal: #ntg_fem * -1# <br />
+					                Minority workforce: #numberformat(minority_workforce)# <br />
+					                Minority availability: #min_avail_pct# <br />
+					                Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					                Minority number to goal: #ntg_min * -1# <br />
+					                <br /><br />
+                                    </td>
+			                        </tr>
+					
+                                </cfcase>
+
+                            </cfswitch>   <!--- goal_setting_testing --->
+			
+			            </cfif>
+						
+						</cfoutput>
+			
+					</cfcase>
+				
+				    <cfcase value = "N">
+					
+					<cfoutput query="AAP2FactorInformation">
+						
+						<cfif #eeo_jobcode_group# equal '2C'>
+
+			                <tr>
+			                <td align="left" colspan="2">
+			                <b>EEO Jobcode Group</b>:<br />
+			                </td>
+			                <td align="left" colspan="4">
+			                #eeo_jobcode_group# #eeo_jobcode_group_descr#<br />
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                &nbsp;
+                            </td>	
+			                <td align="center">
+			                <b>Workforce Utilization</b>
+                            </td>
+			                <td align="center">
+			                <b>% Availability</b>
+                            </td>	
+			                <td align="center">
+			                <b>Goal</b>
+                            </td>	
+			                <td align="center">
+			                <b>Number to Goal</b>
+                            </td>
+			                </tr>
+							
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+							
+			                <tr>
+			                <td width="30" align="left">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="left">
+			                <b>Total</b>:
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                ***<!---#numberformat(total_workforce)#--->
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                <td width="150" align="center" valign="bottom">
+			                &nbsp;
+                            </td>	
+			                </tr>
+			
+				            <tr>
+			                <td align="center" colspan="6">
+			                &nbsp;
+			                </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Female</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(female_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(fem_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_fem,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_fem * -1#</b>--->
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Minority</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(minority_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(min_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_min,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_min * -1#</b>--->
+                            </td>
+			                </tr>
+
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Indiv. with Disabilities</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(disabled_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(dis_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_dis,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_dis * -1#</b>--->
+                            </td>	
+			                </tr>
+						
+			                <tr>
+			                <td align="left">
+			                &nbsp;
+                            </td>
+			                <td align="left">
+			                <b>Protected Veteran</b>:
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(veteran_workforce)#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#NumberFormat(vet_avail_pct,'999.99')# %</b>--->
+                            </td>
+			                <td align="center" valign="bottom">
+			                ***<!---#numberformat(goal_vet,'_,___._')#--->
+                            </td>	
+			                <td align="center" valign="bottom">
+			                ***<!---<b>#ntg_vet * -1#</b>--->
+                            </td>
+			                </tr>
+							
+							<tr>
+			                <td align="left" colspan="6">
+			
+			                <!--- log request --->
+                            <cfinclude template="updaterequestlogdb.cfm">
+
+			                <br /><br />
+                            </td>
+			                </tr>
+							
+							<cfswitch expression=#SESSION.goal_setting_testing#>
+
+                                <cfcase value="Y">
+
+			                        <tr>
+			                        <td align="left" colspan="6">
+			                        <b>Data for request log:</b><br />
+					                InternetID: #SESSION.OIR2.InternetID# <br />
+					                Name: #SESSION.SHIB.displayName# <br />
+					                Date: #DateFormat(todayDate, "mmm-dd-yyyy")# <br />
+					                Payroll period: #MaxMostRecentPayroll.max_most_recent_payroll# <br />
+					                Position number: #PositionInfo.position_nbr# <br />
+					                Campus: #PositionInfo.um_campus# <br />
+					                Entity: #PositionInfo.um_entity# <br />
+					                Entity description: #PositionInfo.um_entity_descr# <br />
+					                Department: #PositionInfo.deptid# <br />
+					                Department description: #PositionInfo.deptid_descr# <br />
+					                Location: #PositionInfo.location# <br />
+					                Jobcode: #PositionInfo.jobcode# <br />
+					                Jobcode description: #PositionInfo.jobcode_descr# <br />
+					                UM Jobcode group: #um_jobcode_group# <br />
+					                UM Jobcode group description: #um_jobcode_group_descr# <br />
+					                EEO Jobcode group: #eeo_jobcode_group# <br />
+					                EEO Jobcode group description: #eeo_jobcode_group_descr# <br />
+					                Total workforce: #numberformat(total_workforce)# <br />
+					                Female workforce: #numberformat(female_workforce)# <br />
+					                Female availability: #fem_avail_pct# <br />
+					                Female goal: #numberformat(goal_fem,'_,___._')# <br />
+					                Female number to goal: #ntg_fem * -1# <br />
+					                Minority workforce: #numberformat(minority_workforce)# <br />
+					                Minority availability: #min_avail_pct# <br />
+					                Minority goal: #numberformat(goal_min,'_,___._')# <br />
+					                Minority number to goal: #ntg_min * -1# <br />
+					                <br /><br />
+                                    </td>
+			                        </tr>
+					
+                                </cfcase>
+
+                            </cfswitch>   <!--- goal_setting_testing --->
+							
+					    </cfif>
+						
+					</cfoutput>
+					
+					</cfcase>
+					
+		        </cfswitch>   <!--- 2c_flag --->
+				
+			    <tr>
+			    <td align="left" colspan="6">
+			
+                <strong>Workforce Utilization:</strong>
+                <br />
+                Full-and part-time employees, who were paid or on a leave with or without pay, as of the date of the pay period ending immediately prior to this report. The data is collected from the University's PeopleSoft HRMS Database.
+                <br /><br />
+
+                <strong>% Availability:</strong>
+                <br />
+                Compiled in accordance with federal guidelines, the University's best estimate of the percentage of qualified women, minorities, individuals with disabilities, and protected veterans available in a well-represented hiring pool for a given EEO Jobcode group.
+                <br /><br />
+
+                <strong>Goal:</strong>
+                <br />
+                The number of women, minorities, individuals with disabilities, and protected veterans the University reasonably expects would be employed at the University given their estimated availability in that Jobcode group when equal employment principles are applied.
+                <br /><br />
+				
+                <strong>Number To Goal:</strong>
+                <br />
+                The number of women, minorities, individuals with disabilities, and protected veterans the University would need to hire in order to meet its goal (underutilization).
+                <br /><br />
+				
+                </td>
+			    </tr>
+				
+                </td>
+			    </tr>
+				
+                </table>
+				
+				<cfswitch expression=#SESSION.goal_setting_testing#>
+
+                    <cfcase value="Y">
+
+                        <cfoutput query="PositionInfo">
+                        <b>Case: FA</b><br /><br />
+                        Max Most recent payroll: #MaxMostRecentPayroll.max_most_recent_payroll#<br />
+                        Max Goal year: #MaxGoalYear.max_goal_year#<br />
+                        UM Jobcode group: #um_jobcode_group#<br />
+                        EEO Jobcode group: #eeo_jobcode_group#<br />
+                        Campus: #um_campus#<br />
+                        UM_entity: #um_entity#<br />
+                        <br />
+                        Rows returned from AAP2factor: #AAP2FactorInformation.RecordCount#<br />
+						Goal info flags: #session.2a_flag#, #session.2b_flag#, #session.2c_flag#<br />
+                        <br /><br />
+                        </cfoutput>
+			
+                        <br /><br />
+
+                    </cfcase>
+
+                </cfswitch>   <!--- goal_setting_testing --->
+				
+			    *** No workforce data, a goal and number to goal can not be calculated.<br /><br />
+
+			</cfif>
+			
+            </cfcase>  
+			
+        <cfdefaultcase>  
+            Unknown 
+        </cfdefaultcase>  
+		
+    </cfswitch> 
+
+</cfif>
+
+</div>
+
+<div class="grid_1">
+&nbsp;
+</div>
+
+</div>
