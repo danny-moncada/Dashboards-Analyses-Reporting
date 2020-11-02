@@ -9,3 +9,6 @@ This repository will contain various screenshots of the various visualizations t
 3.  Python demos and dashboards
 
 4.  R demos and dashboards
+
+5.  Business Analytics coursework
+  a.  IDSC 6490 - Mathematical Foundations for Business Analytics
