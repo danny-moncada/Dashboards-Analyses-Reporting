@@ -11,4 +11,5 @@ This repository will contain various screenshots of the various visualizations t
 4.  R demos and dashboards
 
 5.  M.S. Business Analytics coursework <br/>
-  a.  IDSC 6490 - Mathematical Foundations for Business Analytics
+  a.  IDSC 6490 - Mathematical Foundations for Business Analytics<br/>
+  b.  MSBA 6250 - Analytics for Competitive Advantage<br/>
