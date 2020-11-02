@@ -2,7 +2,7 @@
 
 ## Course Objectives:
 
-A ppreciate the role of the following analytics techniques in business contexts:
+Appreciate the role of the following analytics techniques in business contexts:
 1. Visualization of data
 2. Comparison of groups and assessing statistical differences
 3. Regression based analysis of micro level marketing data
