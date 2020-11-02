@@ -1,4 +1,4 @@
-# HTML output from all course work
+# HTML files containing the output from all coursework
 
 1.  Introduction
 2.  Distributions
