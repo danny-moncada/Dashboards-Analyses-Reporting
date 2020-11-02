@@ -1,7 +1,7 @@
 # Some sample coursework from MSBA 6120 - Introduction to Statistics for Scientists.
 
-<ul>
-<li>Course Objectives:
+## Course Objectives:
+
 <ul>
 <li>Familiarity with classical ideas of data analysis, including:</li>
 <li>data organization</li>
@@ -16,8 +16,5 @@
 </ul>
 </li>
 </ul>
-
-
-
 
 # Sample statistical analysis of the English Premier League.
