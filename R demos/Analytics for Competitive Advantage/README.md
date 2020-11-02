@@ -10,8 +10,8 @@ A ppreciate the role of the following analytics techniques in business contexts:
   a. Fixed effect regressions to account for unobserved heterogeneity<br/>
   b. A/B testing and randomized field experiments<br/>
   c. Instrumentation<br/>
-5. Predictive Modeling
-  a. Decision Trees and predictive classification
-  b. Clustering based segmentation
-6. Overview of supervised and unsupervised machine learning
+5. Predictive Modeling<br/>
+  a. Decision Trees and predictive classification<br/>
+  b. Clustering based segmentation<br/>
+6. Overview of supervised and unsupervised machine learning<br/>
   a. Market basket analysis using association rules
