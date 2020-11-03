@@ -4,7 +4,7 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
 
 1.  M.S. Business Analytics coursework <br/>
   a.  Mathematical Foundations for Business Analytics<br/>
-  b.  MSBA 6250 - Analytics for Competitive Advantage<br/>
+  b.  Analytics for Competitive Advantage<br/>
   
 2.  Oracle Business Intelligence Enterprise Edition demos and dashboards
 
