@@ -9,5 +9,10 @@ This course will introduce you to three advanced modules: <br/>
 
 ## Lessons:
 
-a.  Introduction to Linear Optimization
-b.  
+### Optimization
+a.  Introduction to Linear Optimization<br/>
+b.  Applications of Linear Optimization<br/>
+c.  Linear and Non-Linear Programming<br/>
+
+### Bayesian Data Analysis
+a.  
