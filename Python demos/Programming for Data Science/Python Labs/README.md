@@ -1,12 +1,12 @@
 # All Python labs completed as part of Programming for Data Science course.
 
-Lab 1
-Lab 2
-Lab 3
-Lab 4
-Lab 5
-Lab 6
-Lab 7
-Lab 8
-Lab 9
+Lab 1<br/>
+Lab 2<br/>
+Lab 3<br/>
+Lab 4<br/>
+Lab 5<br/>
+Lab 6<br/>
+Lab 7<br/>
+Lab 8<br/>
+Lab 9<br/>
 Final Project
