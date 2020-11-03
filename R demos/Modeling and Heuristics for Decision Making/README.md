@@ -15,4 +15,6 @@ b.  Applications of Linear Optimization<br/>
 c.  Linear and Non-Linear Programming<br/>
 
 ### Bayesian Data Analysis
-a.  
+a.  RNG & Sampling from Distributions<br/>
+b.  Simulations with Probability Theory<br/>
+c.  Bayesian Data Analysis & Applications<br>
