@@ -3,3 +3,5 @@
 1.  Programming for Data Science - Simple Data Visualizations
 
 2.  Day of Data 2019 - Data Visualization of NiceRide data with Python
+
+3.  Big Data Analytics - Hadoop, Hive, AWS, PySpark, Introduction to ML
