@@ -1,0 +1,368 @@
+Big Data
+-----------------
+Concept of Big Data: Large volumes of high velocity, complex, and variable data that require advanced techniques and technologies to enable the capture, storage, distribution and analysis of information.
+
+Three Vs (Veracity and Value came later): 
+
+Volume: 
+Daily: 2.25 billions shares traded on NYSE, 4.5 billion "likes", Google processes 24 PB of data.
+5,000,000 articles in English Wikipedia 2015 - Articles as plain text (compressed = 11.5 GB, articles & edit history as XML (compressed) = 100 GB, articles & edit history as XML (uncompressed) = 10 TB.
+It's not who has the best algorithm, but the most data - better training data sets.
+To read 1 TB of data into memory: 1 TB = 1024 GB = 1024 * 1024 MB = 1,048,576MB / 100 / 3600 = 2.91 hours
+
+Velocity: Data in motion, speed at which data is created, processed, and analyzed accelearates.
+
+
+Need to process it as it comes in
+
+Variety: Complexity of multiple data types
+Structured: transactional
+Semi structured: sensor data, logs, RFID
+Unstructured: reviews, images, tweets, audio, video
+
+Data size units:
+1 KiloByte = 1024 bytes
+1 MegaByte = 1024^2 bytes
+1 GigaByte = 1024^3 bytes
+1 TeraByte = 1024^4 bytes
+1 PetaByte = 1024^5 bytes
+1 ExbiByte = 1024^6 bytes
+ 
+Data transfer problem:
+You work for ecommerce company that has 5 TB of web logs daily - assuming 1 GB network
+1024MBPS = 1 GBPS
+Sending 1 GB = 8 secs
+Sending 1 TB = 1024*8 / 3600 = 2.27 hours
+Sending 5 TB = 1024*8*5 / 3600 = 12 hours
+
+
+How/why does big data help: Really helpful / versatile with dealing with large variety of semi/unstructured data
+
+Intro to Hadoop
+------------------
+
+Motivation for Hadoop:
+Traditional storing of big data is expensive.  Normally we ETL data to summarize it and archiving results in data warehouse (losing the detail).  Lost detail has some real value.  More data is more understanding.
+We can store data cheaply.  But too much data to process with traditional tools.  How can we store large amounts of data at reasonable cost?  How can we analyze all data we have stored?
+Hadoop provides reliable distributed storage and general framework for parallel processing at a low cost.
+
+Core Hadoop components:
+Storage: Hadoop Distributed File System (HDFS) - framework for distributing data across cluster that is scalable, reliable, available, fast, economical
+Processing: MapReduce - framework for processing data that are scalable, reliable, available, fast
++ File system/administration
++ Job scheduling/monitoring
+
+How Hadoop achieves scalability:
+* Hadoop is distributed, collection of servers run Hadoop called CLUSTER.
+* Individual servers with CLUSTER are called NODES.
+-- Each NODE stores and processes data (data locality)
+* Scalability is linear
+-- Horizontal: scale by adding more machines to pool of resources
+-- Vertical: scale by adding POWAH CPU/RAM to existing machines
+
+Reliability/Availabilty:
+
+Fault Tolerance:
+* By adding more nodes, increase likelihood of one of them failing.  Build redudancy into system to handle it automatically.
+* Files loaded into HDFS replicated across nodes in clusters
+* Data processing are broken into individual tasks
+-- Each task takes small amount of data
+-- Thousands of tasks run in parallel
+-- If a node fails, tasks are rescheduled elsewhere in the CLUSTER.
+
+Differences between Hadoop and RDBMS:
+
+Advantages & Disadvantages of Hadoop:
+
+HDFS
+---------------
+
+How HDFS organizes data:
+* Optimized for relatively small # of large files (likely exceeding 100MB)
+* Stores files in hierarchical dir structure (similar to UNIX)
+* BLOCKS: HDFS files are broken into blocks, the smallest unit for reading/writing.
+-- Each block is replicated multiple times and stored in different nodes of the cluster.
+
+How data is replicated and distributed within HDFS:
+* NameNode holds metadata for two files
+-- Foo.txt (300 MB) and Bar.txt (200 MB)
+* DataNodes hold actual blocks
+-- Block is 128 MB in size
+-- Each block is replicated 3 times on cluster
+
+Concepts of name and data nodes:
+* HDFS NameNode (one/two): manages namespace(file to block mappings) and metadata (block to machine mappings) and monitors dataNodes
+* HDFS DataNodes (many): Reads and writes data
+
+Immutability (cannot change after writing):
+* Cannot modify files once written; to make changes you need to remove and recreate
+
+MapReduce
+--------------
+
+Concept of map reduce programming model: 
+* MAP and REDUCE: spares programmer from thinking about failures since implementation detects failed tasks and reschedules replacements on healthy machines
+
+MapReduce Workflow (mapper, combiner, shuffle and sort, reducer):
+** MAPPER runs first
+-- Takes <key, value> pairs as input, one at a time
+-- Many mappers run parallel, taking a chunk of input data
+---- "fox jumps over" --> ("fox",1), ("jumps",1), ("over",1)
+- Filters, transforms, parses data
+- Output of this becomes input to REDUCER
+
+** REDUCER
+-- Takes list of values for every key, and transforms data on aggregation logic provided in reduce function
+-- Takes <key, value-list> pair as input, emits list of <key, value> pairs as ouput
+---- ("jumps", (1,1,2,1,1)) --> ("jumps", 6)
+-- Each job may have multiple REDUCERS responsible for specific key range.
+-- Can aggregate data from map function (e.g. compute average hourly price of stock)
+-- This can be optional
+
+** COMBINER
+- Sometimes this is run before SHUFFLE AND SORT to reduce amount of data being transferred across network
+- Combiners for SUM and MAX, but not AVG
+
+** SHUFFLE AND SORT
+-- Implicit and carried out by MapReduce framework
+-- Moves data around so that it is organized prior to feeding into REDUCER job
+
+Data locality and share nothing architecture:
+* SHARE NOTHING: Tasks HAVE NO DEPENDENCE on one another.  Any task can go in any order.  Other distributed computing models require programmers to explicitly manage checkpointing and recovery.
+
+Advantages:
+-- Simplicity (data processing is broken down into easier tasks)
+-- Flexibility: More analytic capabilities and works with more data types than SQL (key, value pairs accommodates different kinds of structured/unstructured data)
+-- Scalability: Works with small quantities of data at a time, runs in parallel across cluster, shares nothing across participating nodes
+
+Disadvantages:
+
+YARN: Yet Another Resource Negotiator (new to Hadoop 2.0)
+-- Takes over resource management (CPU, memory) and job scheduling, allows multiple kinds of processing to run on single Hadoop cluster (batch processing, interactive application, data streaming)
+
+Hadoop 2.0 and 1.0 Differences:
+-- Separates MapReduce into YARN layer and MapReduce (for batch processing)
+-- Supports non-MR applications (Impala, Spark, Storm, HBase, Giraph)
+-- Improved nameNode availability
+
+Hadoop Ecosystem
+-------------------
+
+Tools for storage:
+** HDFS
+-- Storage layer for Hadoop
+-- Inexpensive, reliable storage for massive amounts of data
+
+** HBase
+-- NoSQL distributed db which scales to support large amounts of data
+-- Table can have many thousands of columns and billions of rows
+
+** Kudu: Distributed key-value storage for structured data
+
+Ingestion:
+
+** HDFS
+-- Direct file transfer
+
+** sqoop
+-- High speed import for HDFS from RDMBS
+-- Supports many RDBMS; Oracle, Teradata, MySQL, MongoDB, Netezza
+
+** flume
+-- Distributed service for ingesting STREAMING data
+-- Ideal for EVENT DATA from multiple systems
+
+** kafka
+-- High throughput, scalable messaging system
+-- Distributed reliable publish-subscribe system
+
+Processing and data use:
+
+** MR
+-- Java based, core Hadoop processing engine
+-- Mature fault tolerance built into framework
+-- Losing ground to Spark
+
+** Pig
+-- Alternative to write low-level MR Code
+-- Useful for ETL and used by devs/analysts
+
+** Hive
+-- Data warehouse app for Hadoop
+-- Uses SQL-like language called HiveQL
+-- Manages and queries large tables in Hadoop
+
+** Spark
+-- Fast large-scale in-memory processing engine
+-- Highly popular overtaking Hadoop
+
+** Impala
+-- High performance interactive SQL engine
+-- Low latency, runs on Hadoop clusters
+
+** Storm
+-- Distributed and fault tolerance real-time computation platform
+-- Horizontal scalability, guaranteed data processing, fault-tolerance, high performance
+
+Data lakes:
+-- Traditional Data Mart/DW is "store of bottled water"
+-- Data lake is "large body of water in more nature state"
+-- Contents of the data lake stream in from sources to fill lake, various users can examine, dive in, or take samples
+-- Hadoop is ideal platform because you can store mixture of structured and unstructured data side by side
+
+Relationship between Hadoop and traditional DW:
+
+Sqoop
+------------------
+
+Role of sqoop:
+-- Sqoop exchanges data between RDBMS and Hadoop (contraction of SQL-to-Hadoop)
+-- Import all tables, single table, portion of table into HDFS
+-- Result is dir in HDFS containing CSV txt files
+
+Advantages of sqoop:
+
+Whole table vs incremental importing:
+-- What if new records are added to database?
+---- Re-import all records is inefficient
+-- Incremental append mode imports only new records
+---- Based on value of last record in specified columns
+
+Hive
+----------------
+
+Hive execution model:
+-- Runs on client machine
+---- Turns HiveQL queries into acyclic graph of MR, Tez, or Spark job
+---- Submits jobs to Hadoop cluster for execution
+
+Different ways of running Hive queries:
+** Beeline (the Hive Shell)
+-- Execute HiveQL statements in beeline
+## beeline -u jdbc:hive2://
+
+** Hue (web based UI)
+
+Execution engines (MR, Tez, Spark):
+** MR by default
+
+** Tez: set hive.execution.engine=tez;
+-- Offers customizable execution architecture, dynamic optimization, dramatically improves speed of execution
+
+** Spark: set hive.execution.engine=spark;
+-- In memory computing, more customizable execution architecture
+-- Long delay as Spark initializes first query
+---- Subsequent queries run much faster
+-- Takes more memory than MR
+
+Hive vs RDBMS:
+-- Hive is often considered data warehousing for Hadoop
+-- In RDBMS, table is rigid structure that is specified (SCHEMA ON WRITE)
+-- In HIVE, you can store data in HDFS without knowing format at all (SCHEMA ON READ)
+-- Pro: far more flexibility and speed on write
+-- Con: Conflict between expected and actual data formats won't be detected when records are added to table.
+
+RDBMS: SQL, UPDATE, DELETE, Transactions, Index Support, Low Latency, TB, Storage cost high
+Hive: HiveQL, Managed tables only for next three, Limited Index Support, High Latency, PB, Storage cost very low
+
+Hive use cases:
+-- More productive than MR (5 lines of HiveQL = 100 lines of Java)
+-- Large scale data analysis to broader audience
+-- Interoperability with other systems
+
+Hive stores/uses actual and meta data:
+-- Operates on tables like in RDBMS
+** META DATA
+-- Specify structure and location of data
+-- Defined when table is created
+** DATA
+-- Typically in HDFS dir
+-- Default path: /user/hive/warehouse/<table name>
+
+-- Consults metastore to determine data format and location
+-- Query operates on data stored on file system (usually HDFS)
+
+Row format options:
+
+Key storage formats & characteristics:
+** TEXTFILE
+-- Most basic file type in Hadoop
+-- Comma/tab delimited files are compatible with everything
+-- Good interoperability, poor performance
+
+** SEQUENCEFILE
+** AVRO
+
+** PARQUET
+-- Open source columnar format
+-- Stores binary-encoded records
+-- Reduces storage space
+-- Increases peformance
+-- EXCELLENT Interoperability AND PERFORMANCE
+
+** RCFILE
+-- Splits data horizontally into row groups, each row group saves data in columnar format
+-- Data stored as strings
+-- POOR PERFORMANCE AND LIMITED Interoperability
+
+** ORCFILE
+-- Improved version of RCFILE
+-- Good PERFORMANCE, LIMITED Interoperability
+
+Managed/internal vs external Hive tables:
+** MANAGED (internal) tables
+---- Under Hive control
+*** Atomicity (operation succeeds completely or fails)
+*** Consistency (once application performs operation reults of operation are visible to it)
+*** Isolation (incomplete operation by one user does not cause unexpected side effects)
+*** Durability (once operation is complete it will be preserved even in face of system failure)
+
+Hive complex data types (array, struct, map):
+
+Common hive optimization strategies and rationales:
+-- Avoid SELECT * and list columns you need
+-- Filter early in workflows in several steps
+---- use WHERE in sub-query and not main query
+-- Write better queries and avoid costly JOINs
+
+Guidelines for table partitioning:
+-- Reading the entire data set takes too long
+-- Queries always filter on partition columns
+-- Reasonable number of diff values for partition columns
+-- Data generation or ETL process splits data by file or dir names
+-- Partition column values are not in data itself
+
+Dynamic partition:
+-- Hive/Impala automatically creates partitions
+-- Inserted data is stored in correct partitions based on column values
+
+Role of EXPLAIN: to show execution paths for queries and their time
+-- Useful to determine  how many MR phases it needs
+
+Difference between SORT BY and ORDER BY:
+** ORDER BY: sorts specified fields in HiveQL - output from all reducers is sorted
+-- Single reducer to ensure global sorting
+
+** SORT BY: partial ordering, offers better performance if global order isn't required, you want ordering within each Reducers, but not across multiple Reducers
+-- Sorts the input before feeding them into reducers
+-- Improves performance in 2 ways:
+---- Benefits of parallelism
+---- Eliminates need for second MapReduce Job
+
+Different ues of Regular Expressions (REGEXP, REGEXP_MATCH, REGEXP_REPLACE, RegexSerDE):
+
+Concept of various SerDes and use cases:
+** LazySimpleSerDe: using specified field delimiters (Default)
+-- Never
+
+** RegexSerDe: Based on supplied RegEx patterns
+-- Analyzing data that lacks consistent delimiters
+
+** OpenCSVSerde: CSV format
+-- Simple comma delimited data can be processed using default SerDes
+-- But actual CSV contains embedded commas, quoted fields, missing values
+-- Supports \t and |
+
+** JsonSerDe: JSON format
+
+GET_JSON_OBJECT: SELECT title, GET_JSON_OBJECT(CONCAT('{"root":', production_companies, '}'), '$.root.name[0]') AS production_company FROM movies LIMIT 10;
