@@ -5,17 +5,28 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
 1.  M.S. Business Analytics coursework <br/>
   a.  Mathematical Foundations for Business Analytics<br/>
   b.  Analytics for Competitive Advantage<br/>
+  c.  Behavioral Finance<br/>
   
-2.  Oracle Business Intelligence Enterprise Edition demos and dashboards
-
-3.  Python demos and dashboards <br/>
-  a.  Big Data Analytics<br/>
+2.  Python Programming & Reporting<br/>
+  a.  Programming for Data Science<br/>
   b.  Day of Data 2019<br/>
-  c.  Miscellaeous Jupyter Notebooks<br/>
-  d.  Programming for Data Science<br/>
+  c.  Big Data Analytics<br/>
+  d.  Predictive Analytics & Machine Learning<br/>
+  e.  Miscellaeous Jupyter Notebooks<br/>
+  
+3.  R Programming & Reporting
+  a.  Introduction to Statistics for Scientists<br/>
+  b.  English Premier League - What Makes a Winner<br/>
+  c.  Analytics for Competitive Advantage<br/>
+  d.  Modeling & Heuristics for Decision Making<br/>
 
-4.  R demos and dashboards
+4.  Tableau Reporting (workbooks)
+  a.  Analytics for Competitive Advantage
+  b.  University of Minnesota HR Executive Dashboards
+  c.  Miscellaeous & Development Work
 
-5.  SQL scripting
+5.  SQL Scripting
+  a.  Data Management, Database, and Data Modeling
+  b.  University of Minnesota - Position, Job, Compensation
 
-6.  Tableau demos and dashboards
+6.  Oracle Business Intelligence EE (OBIEE) Reporting (demos coming soon)
