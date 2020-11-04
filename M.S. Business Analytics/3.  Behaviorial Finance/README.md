@@ -1,4 +1,4 @@
-# Repository for all coursework related to Analytics for Behavioral Finance course.
+# Repository for all coursework related to Behavioral Finance course.
 
 ## LEARNING OBJECTIVES
 
