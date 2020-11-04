@@ -14,19 +14,19 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
   d.  Predictive Analytics & Machine Learning<br/>
   e.  Miscellaeous Jupyter Notebooks<br/>
   
-3.  R Programming & Reporting
+3.  R Programming & Reporting<br/>
   a.  Introduction to Statistics for Scientists<br/>
   b.  English Premier League - What Makes a Winner<br/>
   c.  Analytics for Competitive Advantage<br/>
   d.  Modeling & Heuristics for Decision Making<br/>
 
-4.  Tableau Reporting (workbooks)
-  a.  Analytics for Competitive Advantage
-  b.  University of Minnesota HR Executive Dashboards
-  c.  Miscellaeous & Development Work
+4.  Tableau Reporting (workbooks)<br/>
+  a.  Analytics for Competitive Advantage<br/>
+  b.  University of Minnesota HR Executive Dashboards<br/>
+  c.  Miscellaeous & Development Work<br/>
 
-5.  SQL Scripting
-  a.  Data Management, Database, and Data Modeling
-  b.  University of Minnesota - Position, Job, Compensation
+5.  SQL Scripting<br/>
+  a.  Data Management, Database, and Data Modeling<br/>
+  b.  University of Minnesota - Position, Job, Compensation<br/>
 
-6.  Oracle Business Intelligence EE (OBIEE) Reporting (demos coming soon)
+6.  Oracle Business Intelligence EE (OBIEE) Reporting (demos coming soon)<br/>
