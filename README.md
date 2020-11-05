@@ -30,3 +30,6 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
   b.  University of Minnesota - Position, Job, Compensation<br/>
 
 6.  Oracle Business Intelligence EE (OBIEE) Reporting (demos coming soon)<br/>
+
+7.  zDanny Moncada Favorite Analyses<br/>
+  a.  Collection of analyses across all platforms that I am most proud of, or still use as a reference guide today.
