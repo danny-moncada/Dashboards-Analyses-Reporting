@@ -22,7 +22,7 @@
 * R scripts
 * PDF outputs (coming soon)
 
-## 5.  5.  Exploratory Data Analytics & Visualization
+## 5.  Exploratory Data Analytics & Visualization
 
 * R scripts
 * PDF outputs
