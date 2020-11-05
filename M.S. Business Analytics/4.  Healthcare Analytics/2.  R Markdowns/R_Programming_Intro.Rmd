@@ -1,0 +1,105 @@
+---
+title: "R Demo"
+subtitle: "Healthcare Analyitcs"
+author: "Danny Moncada (monca016)"
+date: 'September 23, 2019'
+output: pdf_document
+---
+
+```{r}
+# Clear Environment
+rm(list=ls())
+
+#### Arithmetic ####
+x = 3
+y = 5
+x*y
+
+x = y
+y = 7
+x
+y
+
+#### Functions ####
+sin(1)
+tan(.5)
+help(cos)
+?cos
+
+#### Data Type - Numeric ####
+x = 1.15
+abs(-6.7)
+log(4)
+
+#### Data Type - Character ####
+x = "abc"
+print("Hello world.")
+paste("a","b","c")
+paste("Hello","world")
+paste(1,4)
+
+#### Data Type - Logic ####
+x = TRUE
+x | FALSE
+1<2
+4>5
+1<=1
+10==5
+5!=7
+TRUE & FALSE 
+TRUE | FALSE
+
+#### Vector ####
+x = c(3,2,5,6,6,4,2,-3)
+length(x)
+sum(x)
+mean(x)
+x-1
+x*2
+x>2
+c(x,c(6,7,8))
+
+x[3]
+x[-3]
+x[2:4]
+x[c(3,1,4)]
+x[length(x)]
+x[x>2]
+x[x%in%c(2,6)]
+
+
+
+#### Data Tables ####
+library(data.table)
+library(datasets)
+data(iris)
+iris
+
+iris = data.table(iris)
+
+# Exploring data frames
+iris
+iris$Sepal.Length
+iris$Species
+iris[1:6,1:2]
+iris[iris$Petal.Length>5,]
+iris[1]
+iris[[1]]
+
+summary(iris)
+head(iris)
+tail(iris)
+table(iris$Species)
+names(iris)
+nrow(iris)
+
+mean(iris$Sepal.Length)
+
+
+# Calculation Using Data Tables
+iris[,Sepal.Area:=Sepal.Length*Sepal.Width]
+iris$Petal.Area = iris$Petal.Length*iris$Petal.Width
+
+iris[,Big:=0]
+iris[Petal.Area>10,Big:=1]
+```
