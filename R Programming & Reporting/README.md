@@ -1,28 +1,26 @@
 # R demos and dashboards
 
-
-
-## 1.  Analytics for Competitve Advantage (coursework)
+## 1.  Introduction to Statistics (coursework)
 
 * R scripts
 * PDF outputs
 
-## 2.  English Premier League Analysis - What Makes a Winner? <br/>
-  Authors: Anthony Meyers, Danny Moncada, Frankie Cancino <br/>
-  Files: iPython notebook with R, Final Presentation, Final Paper
-  
-## 3.  Introduction to Statistics (coursework)
+## 2.  English Premier League Analysis - What Makes a Winner? 
+* PDF outputs (final presentation & paper)
+* Jupyter Notebooks
 
-* HTML
-* R scripts
+## 3.  Analytics for Competitve Advantage (coursework)
+* R Markdowns
+* Jupyter Notebooks
 * PDF outputs
 
-## 4.  Modeling and Heuristics for Decision Making
+## 4.  Modeling and Heuristics for Decision Making (coursework)
 
 * R scripts
 * PDF outputs (coming soon)
 
-## 5.  Exploratory Data Analytics & Visualization
+## 5.  Exploratory Data Analytics & Visualization (coursework)
 
-* R scripts
+* R Markdowns
+* Jupyter Notebooks
 * PDF outputs
