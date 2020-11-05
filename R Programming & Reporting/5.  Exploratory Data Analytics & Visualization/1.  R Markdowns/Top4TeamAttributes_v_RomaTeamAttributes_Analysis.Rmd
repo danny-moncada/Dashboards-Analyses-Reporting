@@ -1,0 +1,431 @@
+---
+title: "AS Roma & Winning Elevens"
+author: "Danny Moncada"
+date: "September 29th, 2019"
+output: 
+  pdf_document
+---
+
+### Business Problem:
+
+We have been hired by AS Roma as their resident data scientist to find patterns that our coach can exploit to increase success on the field and decrease failure. Specifically, he is looking for non-obvious patterns because he has learned all of the obvious ones through experience. He has asked us to use associations rules for this analysis and we have been provided data (euro_soccer.sqlite) to conduct our tests.
+	
+We have decided to take a multi-stepped approach to our proposed challenge. First, we want to determine what traits are specific to "successful" teams and what traits are specific to "losing" teams. We are going to do this by analyzing the top 4 teams in the top 4 leagues (16 teams total) and by analyzing the bottom 4 teams in the top 4 leagues (16 teams). We have chosen to focus on the top 4 leagues for determining these overall trends because AS Roma is part of Serie A, which is a competitive league. If we had focused on lower-tier leagues, there would be the potential for associations to appear that could not be applied to AS Roma.
+	
+After determining what "successful” and "losing” teams do in the top leagues (formations, # of shots, penalties, defense focus, offense focus, etc.), we will shift our attention to what makes great players. Though we would all love to say to simply hire Ronaldo or Messi, we understand that this simple solution is not feasible for AS Roma. However, we may learn insights into what types of players "successful” teams are most looking for. These characteristics may be speed, attacking rating, defense rating, crossing, heading, short pass, etc. After determining what characteristics make up the best players, which in turn make the best teams, we will move onto compiling our conclusions.
+	
+With these recommendations, we hope to tell our coach what hidden trends can help AS Roma become a more successful team. We hope to identify key characteristics in players, as well as key insights into team play that can lead AS Roma to victory.
+	
+
+Specifically, we hope to come up with actions that the Manager of Roma can take to get Roma in the top 4 teams in their Series so that they can go onto the Championship.
+
+## Definition of Success:
+	
+The top 4 teams in each league go on to the Championship which is tied to financial reward and prestige; finishing each season in the top 4 teams is what our team is defining as success. While it is hard to guarantee a top 4 finish, we are aiming to greatly increase the likelihood of Roma finishing there.
+
+
+### An Overview of team statistics
+
+```{r, echo = FALSE}
+
+## setwd("~/Fall 2019/MSBA 6410 - Exploratory Analytics/HW1")
+
+### Import all the libraries
+library(ggplot2)
+library(dplyr)
+library(arules)
+library(lubridate)
+library(sqldf)
+
+## Connect to the data set
+con <- src_sqlite("euro_soccer.sqlite")
+
+long_team_name <- 'Roma'
+
+country_df <- data.frame(tbl(con, "country"))
+league_df <- data.frame(tbl(con, "league"))
+match_df <- data.frame(tbl(con, "match"))
+player_df <- data.frame(tbl(con, "player"))
+player_atts_df <- data.frame(tbl(con, "player_attributes"))
+team_df <- data.frame(tbl(con, "team"))
+team_atts_df <- data.frame(tbl(con, "team_attributes"))
+
+## Change date to readable format
+match_df$date <- as.Date(match_df$date, "%Y-%m-%d %H:%M:%S")
+
+## Creating columns based on match table to simplify analyses below
+match_df$game_result <- ifelse(match_df$home_team_goal > match_df$away_team_goal, "home", 
+                               ifelse(match_df$away_team_goal > match_df$home_team_goal, "away",
+                                      "tie"))
+
+match_df$total_goals <- (match_df$home_team_goal + match_df$away_team_goal)
+match_df$game_winner <- ifelse(match_df$home_team_goal > match_df$away_team_goal, match_df$home_team_api_id,
+                               ifelse(match_df$away_team_goal > match_df$home_team_goal, match_df$away_team_api_id,'tie'))
+match_df$game_loser <- ifelse(match_df$home_team_goal < match_df$away_team_goal, 
+                              match_df$home_team_api_id,
+                              ifelse(match_df$away_team_goal < match_df$home_team_goal, match_df$away_team_api_id,'tie'))
+match_df$winner_goals <- ifelse(match_df$home_team_goal > match_df$away_team_goal, 
+                                match_df$home_team_goal,
+                                ifelse(match_df$away_team_goal > match_df$home_team_goal, 
+                                       match_df$away_team_goal,match_df$away_team_goal))
+match_df$loser_goals <- ifelse(match_df$home_team_goal < match_df$away_team_goal, 
+                               match_df$home_team_goal,ifelse(match_df$away_team_goal < match_df$home_team_goal, 
+                                                              match_df$away_team_goal,match_df$away_team_goal))
+
+match_df$year<-year(as.POSIXlt(match_df$date, format="%Y-%m-%d"))
+match_df$month<-month(as.POSIXlt(match_df$date, format="%Y-%m-%d"))
+
+## columns to grab from match table (id, country_id, league_id, season, date, 
+## match_api_id, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal, game_result, total_goals, game_winner, game_loser, winner_goals, loser_goals, year, month)
+
+## Get rid of betting sites and XML columns - not needed for this first round of analysis
+matches_df <- sqldf("SELECT id, country_id, league_id, season, date, match_api_id, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal, game_result,
+                    total_goals, game_winner, game_loser, winner_goals, loser_goals, year, month
+                    FROM match_df")
+
+## Get home team long names into table
+match_home_teams <- sqldf("SELECT m.id, country_id, league_id, season, date, match_api_id, 
+                          CASE WHEN m.home_team_api_id = t.team_api_id THEN t.team_long_name ELSE 'NA' END AS home_team,
+                          m.away_team_api_id, home_team_goal, away_team_goal, game_result,
+                          total_goals, game_winner, game_loser, winner_goals, loser_goals, year, month
+                          FROM matches_df m
+                          INNER JOIN team_df t
+                          WHERE home_team_api_id = team_api_id")
+
+### Get away team long names into table
+match_away_teams <- sqldf("SELECT m.id, country_id, league_id, season, date, match_api_id, home_team,
+                          CASE WHEN m.away_team_api_id = t.team_api_id THEN t.team_long_name ELSE 'NA' END AS away_team,
+                          home_team_goal, away_team_goal, game_result,
+                          total_goals, game_winner, game_loser, winner_goals, loser_goals, year, month
+                          FROM match_home_teams m
+                          INNER JOIN team_df t
+                          WHERE away_team_api_id = team_api_id")
+```
+
+```{r}
+## Get country and league names and have a final master match table
+
+master_df <- sqldf("SELECT m.id, c.name AS country, l.name AS league, season, date, home_team, away_team, home_team_goal, away_team_goal, game_result, total_goals,
+                   game_winner, game_loser, winner_goals, loser_goals, year, month 
+                   FROM match_away_teams m
+                   INNER JOIN country_df c
+                   ON m.country_id = c.id
+                   INNER JOIN league_df l
+                   ON m.league_id = l.id")
+
+head(master_df)
+
+```
+This is a base table for different types of analyses.  We can use this to get counts of winners by Season/League - who are top performing teams?
+
+```{r, echo = FALSE}
+## Most pts by season_league
+
+## Investigate how many points each home team won
+home_winners <- sqldf("SELECT season, league, home_team, SUM(CASE WHEN game_result = 'home' THEN 3 ELSE 0 END) as home_pts
+                      FROM master_df
+                      GROUP BY season, league, home_team
+                      ORDER BY home_pts desc")
+
+## Investigate how many points each away team won
+away_winners <- sqldf("SELECT season, league, away_team, SUM(CASE WHEN game_result = 'away' THEN 3 ELSE 0 END) as away_pts
+                      FROM master_df
+                      GROUP BY season, league, away_team
+                      ORDER BY away_pts desc")
+
+## What league shows up the most?
+best_home_league <- count(home_winners, league)
+
+best_home_league <- best_home_league[order(-best_home_league$n),]
+```
+```{r}
+## Show the top four leagues - by home winners
+best_home_league[1:4,]
+
+```
+Interpretation:
+
+The 4 leagues with the most home team wins are England Premier League, France Ligue 1, Italy Serie A, and Spain LIGA BBVA.
+
+```{r}
+## Next we'll filter our matches data to only have matches from these leagues
+## We don't care about anything else
+
+best_leagues <- c(best_home_league$league[1:4])
+
+best_league_matches <- sqldf("SELECT * FROM master_df
+                             WHERE league IN ('England Premier League', 'France Ligue 1', 'Italy Serie A', 
+                             'Spain LIGA BBVA')")
+
+head(best_league_matches)
+
+## OK!  Now we're getting somewhere.  We have a data set with just the league matches
+## that we care about - our top four leagues.
+
+## Now we need to see who our top four teams for each league are - we can do this 
+## by season 
+
+## Let's just get counts of wins - regardless of home or away - and sort by team
+all_wins_df <- sqldf("SELECT season, league, CASE WHEN game_result = 'home' then home_team WHEN game_result = 'away' then away_team ELSE game_result END AS result
+                     FROM best_league_matches")
+
+head(all_wins_df) 
+
+## Get the winning teams for each season and league
+top_teams_by_wins_df <- sqldf("SELECT season, league, result as winning_team, count(result) as num_wins
+                              FROM all_wins_df
+                              WHERE result != 'tie'
+                              GROUP by season, league, winning_team
+                              ORDER BY season, league, num_wins desc")
+
+## Create a league position column so that we can just grab the toup four of each season
+top_teams_by_wins_df <- top_teams_by_wins_df %>%
+  group_by(season, league) %>%
+  mutate(league_position = rank(-num_wins, ties.method = "first"))
+
+top_four_teams <- filter(top_teams_by_wins_df, league_position <= 4)
+
+ggplot(top_four_teams) +
+  aes(x = league, colour = winning_team, weight = num_wins) +
+  geom_bar(position = "dodge", fill = "#0c4c8a") +
+  scale_color_hue() +
+  coord_flip() +
+  theme_gray() +
+  facet_wrap(vars(season))
+
+
+
+## OK So I have a list of teams that are consistently peforming well, top four in each league
+## I want to see what attributes their team consistents of
+## Let's get the list of team names
+
+## I subset my winning teams
+winning_teams <- unique(top_four_teams$winning_team)
+
+## only need the api_id and team_name
+team_cols <- c("team_api_id", "team_long_name")
+
+## A lot of transformations at once!
+
+## Filter out just the winning teams
+winning_teams_df <- filter(team_df, team_long_name %in% winning_teams)
+
+## Filter out on the columns that I want
+winning_teams_df <- winning_teams_df[team_cols]
+
+## Merge the data sets together - last thing I will do is a look-up to convert the date to a league season
+##  I want to filter on the league seasons where the team actually did well
+## Then I will create summary statistics on this
+
+## Look at the Team Attribute DF
+head(team_atts_df)
+
+## Reconfigure the date field so I can create a "season" flag
+team_atts_df$date <- as.Date(team_atts_df$date, "%Y-%m-%d %H:%M:%S")
+team_atts_df$year<-year(as.POSIXlt(team_atts_df$date, format="%Y-%m-%d"))
+team_atts_df$month<-month(as.POSIXlt(team_atts_df$date, format="%Y-%m-%d"))
+
+head(team_atts_df)
+
+## Grab the season so that I can merge on successful teams and the season they were winners
+team_att_season_df <- sqldf("SELECT DISTINCT t.id, team_fifa_api_id, t.team_api_id, team_long_name as team, buildUpPlaySpeed, buildUpPlaySpeedClass, buildUpPlayDribbling,
+                                buildUpPlayPassing, buildUpPlayPassingClass, buildUpPlayPositioningClass, chanceCreationPassing, chanceCreationPassingClass,
+                            chanceCreationCrossing, chanceCreationCrossingClass, chanceCreationShooting, chanceCreationShootingClass, chanceCreationPositioningClass,
+                              defencePressure, defencePressureClass, defenceAggression, defenceAggressionClass, defenceTeamWidth,
+                            defenceTeamWidthClass, defenceDefenderLineClass, t.year, t.month, m.season
+                              FROM team_atts_df t
+                              INNER JOIN matches_df m
+                              ON t.year = m.year
+                              AND t.month = m.month
+                              INNER JOIN winning_teams_df w
+                              ON w.team_api_id = t.team_api_id
+                              ORDER BY season, team")
+
+## Take a look at the data and some sample columns
+
+head(team_att_season_df)
+
+## OK I have a huge list of columns to the right hand side of season and team
+## right hand side
+
+## Let's make some rules
+
+## Attacking Team Attributes - remove buildUpPlayDribbling due to NULL values
+attack <- c('buildUpPlaySpeed', 'buildUpPlaySpeedClass', 'buildUpPlayPassing',
+            'buildUpPlayPassingClass', 'buildUpPlayPositioningClass')
+
+## Midfield Team Attributes
+midfield <- c('chanceCreationPassing', 'chanceCreationPassingClass', 'chanceCreationCrossing', 'chanceCreationCrossingClass',
+              'chanceCreationShooting', 'chanceCreationShootingClass', 'chanceCreationPositioningClass')
+
+## Defense Team Attributes
+defense <- c('defencePressure', 'defencePressureClass', 'defenceAggression', 'defenceAggressionClass',
+             'defenceTeamWidth', 'defenceTeamWidthClass', 'defenceDefenderLineClass')
+
+
+
+attack_df <- team_att_season_df[, attack]
+
+midfield_df <- team_att_season_df[, midfield]
+
+defense_df <- team_att_season_df[, defense]
+
+## Summary of top four teams' offensive numeric attributes
+## Average build up play speed is 52/100 and passing (accuracy) is 45/100 - Roma can do better here!
+summary(dplyr::select_if(attack_df, is.numeric))
+
+# buildUpPlaySpeed buildUpPlayPassing
+# Min.   :20.00    Min.   :20.0      
+# 1st Qu.:45.00    1st Qu.:36.0      
+# Median :50.50    Median :47.0      
+# Mean   :52.46    Mean   :45.6      
+# 3rd Qu.:63.25    3rd Qu.:52.0      
+# Max.   :78.00    Max.   :70.0
+
+## Balanced speed for building up play, mix of long/short passing for build up play
+## build up position is organized - teams that are successful play with balance (can we exploit this with Roma?)
+dplyr::select_if(attack_df, is.character) %>%
+  group_by(buildUpPlaySpeedClass, buildUpPlayPassingClass, buildUpPlayPositioningClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq)
+
+#    buildUpPlaySpeedClass buildUpPlayPassingClass buildUpPlayPositioningClass  Freq
+#  1 Balanced              Mixed                   Organised                     132
+#  2 Fast                  Mixed                   Organised                      17
+
+head(midfield_df)
+
+## Summary of top four teams' midfield numeric attributes
+## Average chance creation from passing is 53/100, from crosses is 55/100, and shooting from midfield is 55/100
+summary(dplyr::select_if(midfield_df, is.numeric))
+# chanceCreationPassing chanceCreationCrossing chanceCreationShooting
+# Min.   :28.00         Min.   :20.00          Min.   :23.00         
+# 1st Qu.:46.00         1st Qu.:50.00          1st Qu.:50.00         
+# Median :50.50         Median :56.00          Median :54.50         
+# Mean   :53.19         Mean   :55.58          Mean   :55.75         
+# 3rd Qu.:65.00         3rd Qu.:65.00          3rd Qu.:67.00         
+# Max.   :77.00         Max.   :80.00          Max.   :80.00         
+
+## Successful teams create chances from midfield normally, from cross normal, and shooting opportunities normal
+## And are organized in there positioning.  Nothing too suprising about that.
+dplyr::select_if(midfield_df, is.character) %>%
+  group_by(chanceCreationPassingClass, chanceCreationCrossingClass, chanceCreationShootingClass, chanceCreationPositioningClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq)
+#   chanceCreationPassingClass chanceCreationCrossingClass chanceCreationShootingClass chanceCreationPositioningClass  Freq
+# 1 Normal                     Normal                      Normal                      Organised                         89
+# 2 Normal                     Normal                      Lots                        Organised                         19
+
+head(defense_df)
+
+## Summary of top four teams' defense numeric attributes
+summary(dplyr::select_if(defense_df, is.numeric))
+# defencePressure defenceAggression defenceTeamWidth
+# Min.   :23.00   Min.   :30.00     Min.   :30.00   
+# 1st Qu.:40.00   1st Qu.:45.00     1st Qu.:49.00   
+# Median :49.00   Median :49.00     Median :53.50   
+# Mean   :48.36   Mean   :50.67     Mean   :53.39   
+# 3rd Qu.:56.00   3rd Qu.:57.00     3rd Qu.:60.00   
+# Max.   :70.00   Max.   :70.00     Max.   :70.00
+
+dplyr::select_if(defense_df, is.character) %>%
+  group_by(defencePressureClass, defenceAggressionClass, defenceTeamWidthClass, defenceDefenderLineClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq)
+
+#   defencePressureClass defenceAggressionClass defenceTeamWidthClass defenceDefenderLineClass  Freq
+# 1 Medium               Press                  Normal                Cover                      151
+# 2 Medium               Press                  Normal                Offside Trap                12
+
+## Now that we've analyzed our successful teams, we should check what the team attributes say about Roma for the last few seasons
+## We want to see if there is area for improvement, either in attack, midfield, or defense
+
+## Get team attributes for AS Roma
+roma_att_season_df <- sqldf("SELECT DISTINCT t.id, t.team_fifa_api_id, t.team_api_id, team_long_name as team, buildUpPlaySpeed, buildUpPlaySpeedClass,
+                                buildUpPlayPassing, buildUpPlayPassingClass, buildUpPlayPositioningClass, chanceCreationPassing, chanceCreationPassingClass,
+                            chanceCreationCrossing, chanceCreationCrossingClass, chanceCreationShooting, chanceCreationShootingClass, chanceCreationPositioningClass,
+                            defencePressure, defencePressureClass, defenceAggression, defenceAggressionClass, defenceTeamWidth,
+                            defenceTeamWidthClass, defenceDefenderLineClass, t.year, t.month, m.season
+                            FROM team_atts_df t
+                            INNER JOIN matches_df m
+                            ON t.year = m.year
+                            AND t.month = m.month
+                            INNER JOIN team_df tm
+                            ON tm.team_api_id = t.team_api_id
+                            WHERE tm.team_long_name = 'Roma'
+                            ORDER BY season, team")
+
+
+head(roma_att_season_df)
+
+## Subset each set of attributes similarly to the top 4 teams above
+roma_attack_df <- roma_att_season_df[, attack]
+
+## Summary of offensive numeric attributes
+## Average build up play speed is 63/100 and passing (accuracy) is 40/100 - area for improvement?
+summary(dplyr::select_if(roma_attack_df, is.numeric))
+
+# buildUpPlaySpeed buildUpPlayPassing
+# Min.   :53.00    Min.   :30.00     
+# 1st Qu.:61.00    1st Qu.:32.00     
+# Median :65.50    Median :39.00     
+# Mean   :63.67    Mean   :40.00     
+# 3rd Qu.:67.75    3rd Qu.:45.25     
+# Max.   :70.00    Max.   :55.00
+
+## Roma tends to play fast, with a mixed set of passing, but keep an organized shape
+dplyr::select_if(roma_attack_df, is.character) %>%
+  group_by(buildUpPlaySpeedClass, buildUpPlayPassingClass, buildUpPlayPositioningClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq)
+
+#   buildUpPlaySpeedClass buildUpPlayPassingClass buildUpPlayPositioningClass  Freq
+# 1 Fast                  Mixed                   Organised                       2
+
+## Get Roma's midfield attributes
+roma_midfield_df <- roma_att_season_df[, midfield]
+
+## Creative passing from midfield, not much crossing, 60/100 creating chances from shots
+summary(dplyr::select_if(roma_midfield_df, is.numeric))
+# chanceCreationPassing chanceCreationCrossing chanceCreationShooting
+# Min.   :60.00         Min.   :35.00          Min.   :50.00         
+# 1st Qu.:65.50         1st Qu.:51.00          1st Qu.:56.00         
+# Median :69.00         Median :57.00          Median :60.50         
+# Mean   :68.83         Mean   :56.33          Mean   :60.50         
+# 3rd Qu.:72.50         3rd Qu.:63.00          3rd Qu.:65.75         
+# Max.   :77.00         Max.   :75.00          Max.   :70.00
+
+## Found a much better way to summarize this data! Awesome.
+## Risky chance creation, free form creation / positioning - fluid midfield
+dplyr::select_if(roma_midfield_df, is.character) %>%
+  group_by(chanceCreationPassingClass, chanceCreationCrossingClass, chanceCreationShootingClass, chanceCreationPositioningClass) %>%
+      summarise(Freq = n()) %>%
+          arrange(-Freq)
+
+#   chanceCreationPassingClass chanceCreationCrossingClass chanceCreationShootingClass chanceCreationPositioningClass  Freq
+#  1 Risky                      Normal                      Normal                      Free Form                          3
+
+## Get defensive attributes for Roma
+roma_defense_df <- roma_att_season_df[, defense]
+
+## Summary of defensive numeric attributes
+## Low pressure, low agression, 50/100 team width
+summary(dplyr::select_if(roma_defense_df, is.numeric))
+# defencePressure defenceAggression defenceTeamWidth
+# Min.   :35.00   Min.   :30.00     Min.   :34.00   
+# 1st Qu.:36.00   1st Qu.:45.50     1st Qu.:48.50   
+# Median :41.00   Median :47.00     Median :50.00   
+# Mean   :42.83   Mean   :47.17     Mean   :50.83   
+# 3rd Qu.:48.25   3rd Qu.:54.50     3rd Qu.:52.25   
+# Max.   :55.00   Max.   :57.00     Max.   :70.00
+
+## Summary of defensive categorical attributes
+## they play the press, normal team shape and a high line due to their offside trap scheme - maybe this is an area for improvement?
+dplyr::select_if(roma_defense_df, is.character) %>%
+  group_by(defencePressureClass, defenceAggressionClass, defenceTeamWidthClass, defenceDefenderLineClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq)
+
+#  defencePressureClass defenceAggressionClass defenceTeamWidthClass defenceDefenderLineClass  Freq
+#1 Medium               Press                  Normal                Offside Trap                 3
+```
