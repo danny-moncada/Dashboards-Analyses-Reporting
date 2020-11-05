@@ -1,0 +1,1047 @@
+---
+title: "AS Roma & Winning Elevens"
+author: "Sarah Black, Michael DeGuire, Anthony Meyers, Danny Moncada, Jonathan Watkins"
+date: "September 29th, 2019"
+output: pdf_document
+---
+
+## Business Problem:
+
+We have been hired by AS Roma as their resident data scientist to find patterns that our coach can exploit to increase success on the field and decrease failure. Specifically, he is looking for non-obvious patterns because he has learned all of the obvious ones through experience. He has asked us to use associations rules for this analysis and we have been provided data (euro_soccer.sqlite) to conduct our tests.
+	
+We have decided to take a multi-stepped approach to our proposed challenge. First, we want to determine what traits are specific to "successful" teams and what traits are specific to "losing" teams. We are going to do this by analyzing the top 4 teams in the top 4 leagues (16 teams total) and by analyzing the bottom 4 teams in the top 4 leagues (16 teams). We have chosen to focus on the top 4 leagues for determining these overall trends because AS Roma is part of Serie A, which is a competitive league. If we had focused on lower-tier leagues, there would be the potential for associations to appear that could not be applied to AS Roma.
+	
+After determining what "successful” and "losing” teams do in the top leagues (formations, # of shots, penalties, defense focus, offense focus, etc.), we will shift our attention to what makes great players. Though we would all love to say to simply hire Ronaldo or Messi, we understand that this simple solution is not feasible for AS Roma. However, we may learn insights into what types of players "successful” teams are most looking for. These characteristics may be speed, attacking rating, defense rating, crossing, heading, short pass, etc. After determining what characteristics make up the best players, which in turn make the best teams, we will move onto compiling our conclusions.
+	
+With these recommendations, we hope to tell our coach what hidden trends can help AS Roma become a more successful team. We hope to identify key characteristics in players, as well as key insights into team play that can lead AS Roma to victory.
+	
+Specifically, we hope to come up with actions that the manager of Roma can take to get AS Roma in the top 4 teams in Serie A to qualify for the UEFA Champions League.
+
+## Definition of Success:
+	
+The top 4 teams in each league go on to the Championship which is tied to financial reward and prestige; finishing each season in the top 4 teams is what our team is defining as success. While it is hard to guarantee a top 4 finish, we are aiming to greatly increase the likelihood of Roma finishing there.
+
+## 1.  K Means Clustering for Team Characteristics
+
+What types of teams are Roma likely to face?
+
+```{r loading_packages, message = FALSE, echo = FALSE}
+
+suppressWarnings(suppressPackageStartupMessages({
+  library(tidyverse)
+  library(tidyr)
+  library(curl)
+  library(dbplyr)
+  library(RSQLite)
+  library(magrittr)
+  library(xml2)
+  library(dplyr, warn.conflicts = FALSE)
+  library(purrr)
+  library(tidyr)
+  library(ggplot2)
+  library(ggrepel)
+  library(lubridate)
+  library(plotrix)
+  library(arules)
+  library(sqldf)
+  library(RSQLite)
+}))
+```
+
+Data Preparation - K Means Clustering
+
+1.  Create help functions to unnest XML columns in data
+2.  Unnested data and created aggregate views of the matches data
+```{r, echo = FALSE, message = FALSE}
+#=======================================================
+# these are helper functions to unnest the XML columns
+#=======================================================
+#https://www.kaggle.com/minimaskinen/headers-heights-exploring-xml-event-data
+# Extracts all value fields into a list
+xml_to_list <- function(xml) {
+  xml_str <- read_xml(xml)
+  values <- xml_find_all(xml_str, ".//value")
+  as_list(values)
+}
+
+# Unnest all list elements into a data frame row
+# Relies on data frames adding a numbering suffix to identical column names
+list_to_data_frame <- function(l) {
+  flat <- tryCatch(
+    as.list(do.call(c, unlist(l, recursive = FALSE))),
+    error = function(e) list()
+  )
+  as.data.frame(flat, stringsAsFactors = FALSE)
+}
+
+# Stacking goals in each game
+stack_goals <- function(l, id) {
+  df <- map_dfr(l, list_to_data_frame)
+  df$match_id <- id
+  df
+}
+
+xmlcol_to_dataframe<- function(table_column) {
+  xml_lst <- lapply(table_column, xml_to_list)
+  i_zero <- which(lengths(xml_lst) == 0)
+  xml_lst[i_zero] <- NULL
+  map2_dfr(xml_lst, matches$id[-i_zero], stack_goals)
+}
+```
+
+```{r, echo = FALSE, message = FALSE}
+#=======================================================
+#load the data and display the tables
+db <- src_sqlite("euro_soccer.sqlite")
+src_tbls(db)
+
+# Homework 1 specificly about Roma
+long_team_name <- 'Roma'
+
+#get specific Roma data
+team_tbl <- tbl(db, "team") %>% collect()
+
+#league ids
+league_tbl <- tbl(db, "league") %>%
+  collect()
+
+# 1729	1729	England Premier League
+# 4769	4769	France Ligue 1
+# 7809	7809	Germany 1. Bundesliga
+# 10257	10257	Italy Serie A
+# 21518	21518	Spain LIGA BBVA
+
+roma_record <- team_tbl %>% 
+  collect() %>%
+  filter(grepl(long_team_name, team_long_name))
+
+#pull down matches data, parse to Roma
+matches  <- tbl(db, "Match") %>% filter(!is.na(goal)) %>% 
+   filter(league_id == 1729 | league_id == 4769 | league_id == 7809 | league_id == 10257 | league_id == 21518) %>%
+   #filter(home_team_api_id == !!roma_record$team_api_id | away_team_api_id == !!roma_record$team_api_id) %>% 
+   collect()
+
+# #slim down matches table for top 5 lagues
+# matches_slim <- tbl(db, "Match") %>% filter(!is.na(goal)) %>%
+#   select(id, country_id, league_id, season, stage, date, match_api_id, home_team_api_id, 
+#          away_team_api_id, home_team_goal, away_team_goal, goal,shoton, shotoff, foulcommit, card, cross, corner, possession) %>%
+#   filter(league_id == 1729 | league_id == 4769 | league_id == 7809 | league_id == 10257 | league_id == 21518) %>%
+#   collect()
+
+#==========================================================================
+matches = matches %>% mutate(home_points = case_when(home_team_goal > away_team_goal ~ 3,
+                                                home_team_goal == away_team_goal ~ 1,
+                                                home_team_goal < away_team_goal ~ 0))
+
+matches = matches %>% mutate(away_points = case_when(home_team_goal > away_team_goal ~ 0,
+                                                               home_team_goal == away_team_goal ~ 1,
+                                                               home_team_goal < away_team_goal ~ 3))
+
+#==========================================================================
+#get team final points
+home = matches %>% select(season, league_id, home_team_api_id, home_points, gf = home_team_goal, ga = away_team_goal) %>%
+  group_by(season, league_id, home_team_api_id) %>% summarize(home_points = sum(home_points), gf = sum(gf), ga =sum(ga))
+
+away = matches %>% select(season, league_id, away_team_api_id, away_points, gf = away_team_goal, ga = home_team_goal) %>%
+  group_by(season, league_id, away_team_api_id) %>% summarize(away_points = sum(away_points), gf = sum(gf), ga =sum(ga))
+
+
+full = home %>% left_join(away, by = c("season"="season", "home_team_api_id"="away_team_api_id", "league_id"="league_id"))
+
+full = full %>% mutate(total_points = home_points + away_points, gf = gf.x + gf.y, ga = ga.x + ga.y)
+
+full %>% left_join(team_tbl, by=c("home_team_api_id"="team_api_id")) %>% 
+  arrange(season, league_id, desc(total_points)) %>%
+  ggplot(aes(x = team_long_name, y = total_points)) + 
+  geom_point(shape=1) +
+  facet_grid(league_id ~ season)
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+# #=======================================================
+# # parse the XML columns into useable dataframes
+# 
+# goals <- xmlcol_to_dataframe(matches$goal)
+# write.csv(goals, "goals.csv")
+# 
+# shoton <- xmlcol_to_dataframe(matches$shoton)
+# write.csv(shoton, "shoton.csv")
+# 
+# shotoff <- xmlcol_to_dataframe(matches$shotoff)
+# write.csv(shotoff, "shotoff.csv")
+# 
+# foulcommit <- xmlcol_to_dataframe(matches$foulcommit)
+# write.csv(foulcommit, "foulcommit.csv")
+# 
+# card <- xmlcol_to_dataframe(matches$card)
+# write.csv(card, "card.csv")
+# 
+# cross <- xmlcol_to_dataframe(matches$cross)
+# write.csv(cross, "cross.csv")
+# 
+# corner <- xmlcol_to_dataframe(matches$corner)
+# write.csv(corner, "corner.csv")
+# 
+# possession <- xmlcol_to_dataframe(matches$possession)
+# write.csv(possession, "possession.csv")
+# #=======================================================
+
+
+#ran the above once, wrote files out to csv as reading csv faster than parsing the XML
+# read in csv files
+goals <- read.csv(file="goals.csv", header=TRUE, sep=",")
+shoton <- read.csv(file="shoton.csv", header=TRUE, sep=",")
+shotoff <- read.csv(file="shotoff.csv", header=TRUE, sep=",")
+foulcommit <- read.csv(file="foulcommit.csv", header=TRUE, sep=",")
+card <- read.csv(file="card.csv", header=TRUE, sep=",")
+cross <- read.csv(file="cross.csv", header=TRUE, sep=",")
+corner <- read.csv(file="corner.csv", header=TRUE, sep=",")
+possession <- read.csv(file="possession.csv", header=TRUE, sep=",")
+
+#****************************
+# aggregate goals
+goals[is.na(goals)] <- 0
+# View(goals)
+
+goals %>% group_by(team, subtype, type, team, player1) %>% 
+  summarize(goals = sum(as.integer(stats.goals)), pens = sum(as.integer(stats.penalties)), og = sum(as.integer(stats.owngoals))) %>%
+  ungroup() %>%
+  group_by(team, )
+
+agg_goals = matches %>% left_join(goals, by = c("id"="match_id")) %>%
+  group_by(season, team, subtype, type, team, player1) %>% 
+  summarize(goals = sum(as.integer(stats.goals)), pens = sum(as.integer(stats.penalties)), og = sum(as.integer(stats.owngoals))) %>%
+  ungroup() %>%
+  group_by(season, team, subtype) %>%
+  summarize(goals2 = sum(goals+pens))
+
+rm(goals)
+#****************************
+# aggregate shotson
+shoton[is.na(shoton)] <- 0
+
+agg_shotson = matches %>% left_join(shoton, by = c("id"="match_id")) %>%
+  group_by(season, team, subtype, type, team, player1) %>% 
+  summarize(shoton = sum(as.integer(stats.shoton))) %>%
+  ungroup() %>%
+  group_by(season, team, subtype) %>%
+  summarize(shoton = sum(shoton))
+
+rm(shoton)
+#****************************
+# aggregate shotsoff
+shotoff[is.na(shotoff)] <- 0
+
+agg_shotsoff = matches %>% left_join(shotoff, by = c("id"="match_id")) %>%
+  group_by(season, team, subtype, type, team, player1) %>% 
+  tally() %>%
+  ungroup() %>%
+  group_by(season, team, subtype, type) %>%
+  summarize(shotoff=sum(n))
+
+rm(shotoff)
+#****************************
+# aggregate foulcommit
+foulcommit[is.na(foulcommit)] <- 0
+
+agg_foulcommit = matches %>% left_join(foulcommit, by = c("id"="match_id")) %>%
+    group_by(season, team, subtype, type, team, player1) %>% 
+    summarize(foulcommits = sum(as.integer(stats.foulscommitted))) %>%
+    ungroup() %>%
+    group_by(season, team, subtype) %>%
+    summarize(foulcommits = sum(foulcommits))
+
+rm(foulcommit)
+
+#****************************
+# aggregate card
+card[is.na(card)] <- 0
+
+agg_card = matches %>% left_join(card, by = c("id"="match_id")) %>%
+  group_by(season, team, subtype, card_type, team, player1) %>% 
+  summarize(yellows = sum(as.integer(stats.ycards)), reds = sum(as.integer(stats.rcards))) %>%
+  ungroup() %>%
+  group_by(season, team, subtype) %>%
+  summarize(yellows = sum(yellows), reds = sum(reds))
+
+rm(card)
+
+#****************************
+# aggregate cross
+cross[is.na(cross)] <- 0
+
+# View(cross)
+
+agg_crosses = matches %>% left_join(cross, by = c("id"="match_id")) %>%
+  group_by(season, team, type, team, player1) %>% 
+  summarize(cross = sum(as.integer(stats.crosses)), corner = sum(as.integer(stats.corners))) %>%
+  ungroup() %>%
+  group_by(season, team, type) %>%
+  summarize(cross = sum(cross), corner = sum(corner))
+
+
+# View(agg_crosses)
+rm(cross)
+
+#****************************
+# aggregate corner
+corner[is.na(corner)] <- 0
+
+# View(corner)
+
+agg_corner = matches %>% left_join(corner, by = c("id"="match_id")) %>%
+  group_by(season, team, subtype, team, player1) %>% 
+  tally() %>%
+  ungroup() %>%
+  group_by(season, team, subtype) %>%
+  summarize(corners=sum(n))
+
+# View(agg_corner)
+rm(corner)
+
+#****************************
+# aggregate possession
+possession[is.na(possession)] <- 0
+
+
+# View(possession)
+
+agg_away_possession = matches %>% left_join(possession, by = c("id"="match_id")) %>% 
+       filter(!is.na(elapsed) & !is.na(awaypos)) %>%
+  mutate(pos_period = case_when(elapsed <= 45 ~ 0,
+                                elapsed > 45 ~ 1)) %>%
+  group_by(season, away_team_api_id, pos_period) %>%
+  summarize(avg_pos = mean(as.integer(awaypos)))
+
+agg_home_possession = 
+matches %>% left_join(possession, by = c("id"="match_id")) %>% 
+  filter(!is.na(elapsed) & !is.na(homepos)) %>%
+  mutate(pos_period = case_when(elapsed <= 45 ~ 0,
+                                elapsed > 45 ~ 1)) %>%
+  group_by(season, home_team_api_id, pos_period) %>%
+  summarize(avg_pos = mean(as.integer(homepos)))
+
+agg_away_possession = agg_away_possession %>% select(season, away_team_api_id, pos_period, avg_pos) %>% 
+  spread(key = pos_period, value = avg_pos) %>%
+  select(season, away_team_api_id, away_firsthalf_pos = '0', away_secondhalf_pos = '1')
+
+agg_home_possession = agg_home_possession %>% select(season, home_team_api_id, pos_period, avg_pos) %>% 
+  spread(key = pos_period, value = avg_pos) %>%
+  select(season, home_team_api_id, home_firsthalf_pos = '0', home_secondhalf_pos = '1')
+
+
+agg_possession = agg_home_possession %>% 
+  left_join(agg_away_possession, by = c("season"="season","home_team_api_id"="away_team_api_id"))
+
+# View(agg_possession)
+
+rm(possession)
+
+#============================================================
+```
+
+```{r fig.height = 20, fig.width = 20, message = FALSE, warning = FALSE}
+
+
+full$home_team_api_id=as.integer(full$home_team_api_id)
+agg_goals$team = as.integer(agg_goals$team)
+agg_shotsoff$team = as.integer(agg_shotsoff$team)
+agg_shotson$team = as.integer(agg_shotson$team)
+agg_foulcommit$team = as.integer(agg_foulcommit$team)
+agg_card$team = as.integer(agg_card$team)
+agg_crosses$team = as.integer(agg_crosses$team)
+agg_corner$team = as.integer(agg_corner$team)
+agg_possession$home_team_api_id = as.integer(agg_possession$home_team_api_id)
+
+
+
+full = full %>% left_join(agg_shotsoff %>% group_by(season, team) %>% 
+                            summarize(shotsoff = sum(shotoff)), 
+                          by = c("season"="season", "home_team_api_id"="team"))
+
+full = full %>% left_join(agg_shotson %>% group_by(season, team) %>% 
+                            summarize(shotson = sum(shoton)), 
+                          by = c("season"="season", "home_team_api_id"="team"))
+
+full = full %>% left_join(agg_foulcommit %>% group_by(season, team) %>% 
+                            summarize(foulscommitted = sum(foulcommits)), 
+                          by = c("season"="season", "home_team_api_id"="team"))
+
+full = full %>% left_join(agg_card %>% group_by(season, team) %>% 
+                            summarize(yellows = sum(yellows), reds = sum(reds)), 
+                          by = c("season"="season", "home_team_api_id"="team"))
+
+full = full %>% left_join(agg_crosses %>% group_by(season, team) %>% 
+                            summarize(crosses = sum(cross)), 
+                          by = c("season"="season", "home_team_api_id"="team"))
+
+full = full %>% left_join(agg_corner %>% group_by(season, team) %>% 
+                            summarize(corners = sum(corners)), 
+                          by = c("season"="season", "home_team_api_id"="team"))
+
+full = full %>% left_join(agg_possession, 
+                          by = c("season"="season", "home_team_api_id"="home_team_api_id"))
+
+
+#=======================================================
+#get top 4 teams by league by season
+
+full %>% filter(home_team_api_id == roma_record$team_api_id)
+
+
+filter_top4 = full %>% group_by(season, league_id) %>% 
+  arrange(season, league_id, desc(total_points)) %>%
+  mutate(rank = row_number(desc(total_points))) %>%
+  filter(rank <= 4) %>%
+  select(season, league_id, home_team_api_id)
+
+filter_top4_pt2 = full %>% group_by(season, league_id) %>% 
+  arrange(season, league_id, desc(total_points)) %>%
+  mutate(rank = row_number(desc(total_points))) %>%
+  filter(rank <= 4) %>%
+  select(season, league_id, home_team_api_id)
+
+full_top4 = full %>% left_join(filter_top4, 
+                               by = c("season"="season", "league_id"="league_id", 
+                                      "home_team_api_id"="home_team_api_id"))
+
+full_top4 = full_top4 %>% ungroup() %>% 
+  select(home_gf = gf.x, home_ga = ga.x, away_gf = gf.y, away_ga = ga.y, shotsoff, shotson, 
+         foulscommitted, yellows, reds, corners, crosses, home_firsthalf_pos, 
+         home_secondhalf_pos, away_firsthalf_pos, away_secondhalf_pos)
+
+#================================================
+#perform kmeans to generate clusters
+
+#normalize the data for k-means
+normalize <- function(x){
+  return ((x - min(x))/(max(x) - min(x)))}
+
+
+data_normalized = mutate(full_top4 %>% drop_na(), 
+                         home_gf = normalize(home_gf),
+                         home_ga = normalize(home_ga),
+                         away_gf = normalize(away_gf),
+                         away_ga = normalize(away_ga),
+                         shotsoff = normalize(shotsoff),
+                         shotson = normalize(shotson),
+                         foulscommitted = normalize(foulscommitted),
+                         yellows = normalize(yellows),
+                         reds = normalize(reds),
+                         corners = normalize(corners),
+                         crosses = normalize(crosses),
+                         home_firsthalf_pos = normalize(home_firsthalf_pos),
+                         home_secondhalf_pos = normalize(home_secondhalf_pos),
+                         away_firsthalf_pos = normalize(away_firsthalf_pos),
+                         away_secondhalf_pos = normalize(away_secondhalf_pos))
+
+# View(data_normalized)
+
+
+# kmeans
+
+library(stats)
+
+kcluster <- kmeans(data_normalized, 3)
+kcluster$size
+kcluster$centers
+# kcluster$cluster # Exclude from analysis
+plot(data_normalized, col = (kcluster$cluster), main = "K means clustering",
+     pch = 20, cex = 2)
+```
+
+Same plot as above at different plot dim
+```{r fig.height = 7, fig.width = 7, message = FALSE, warning = FALSE}
+plot(data_normalized, col = (kcluster$cluster), main = "K means clustering",
+     pch = 20, cex = 2)
+```
+
+
+
+```{r fig.height = 4, fig.width = 4, message = FALSE, warning = FALSE}
+SSE_curve <- c()
+for (n in 1:10) {
+  kcluster <- kmeans(data_normalized, n)
+  print(kcluster$withinss)
+  sse <- sum(kcluster$withinss)
+  SSE_curve[n] <- sse
+}
+plot(1:10, SSE_curve, type="b", xlab="Number of Clusters", ylab="SSE", main = "Elbow Curve")
+```
+
+```{r fig.height = 10, fig.width = 10, message = FALSE, warning = FALSE}
+kcluster <- kmeans(data_normalized, 6)
+cluster.stats = kcluster$centers
+
+radial.plot(cluster.stats, rp.type = "p", lwd = 2, labels = colnames(cluster.stats), show.grid.labels=0, main = "Radial Plot")
+```
+
+
+```{r fig.height = 10, fig.width = 10, message = FALSE, warning = FALSE}
+
+#===================================
+#merge clusters with the data
+full_top4 %>% drop_na() #this is the base data
+##kcluster$cluster ## hide the clusters
+
+full_top4wTeam = full %>% left_join(filter_top4, by = c("season"="season", 
+                                                        "league_id"="league_id", 
+                                                        "home_team_api_id"="home_team_api_id"))
+
+full_top4wTeam = full_top4wTeam %>% ungroup() %>% select(home_team_api_id, 
+                                                         home_gf = gf.x, 
+                                                         home_ga = ga.x, 
+                                                         away_gf = gf.y, 
+                                                         away_ga = ga.y, 
+                                                         shotsoff, shotson, 
+                                                         foulscommitted, yellows, 
+                                               reds, corners, crosses, 
+                                               home_firsthalf_pos, 
+                                               home_secondhalf_pos, 
+                                               away_firsthalf_pos, 
+                                               away_secondhalf_pos)
+
+#the above is the same data but added team_id so we can track
+
+clustered_full_top4wTeam = full_top4wTeam %>% drop_na()
+clustered_full_top4wTeam["cluster"] = kcluster$cluster
+
+#get Romas index' from the cluster table so we can pop it out of the cluster grid
+roma_rows=which(clustered_full_top4wTeam$home_team_api_id == roma_record$team_api_id)
+
+data_normalized[roma_rows,]
+#get the last possible year for roma which is last entry in roma_rows
+data_normalized[tail(roma_rows, n=1),]
+
+#===================================
+#plot clusters
+#add cluster for plotting 
+
+metrics = c("Home GF", "Home GA", "Away GF","Away GA","Shots Off Target", "Shots On Target", 
+            "Fouls Committed","Yellow Cards","Red Cards","Corners","Crosses",
+            "Home 1st Half Pos.","Home 2nd Half Pos.",
+            "Away 1st Half Pos.","Away 2nd Half Pos.")
+
+cluster.stats = as.data.frame(cluster.stats) %>% mutate(cluster = row_number())
+
+cluster.stats %>% 
+  gather("Metric","Value",-cluster) %>%
+  ggplot(aes(x = Metric, y = Value, fill = Metric)) +
+  geom_col() +
+  facet_grid(rows = vars(cluster))
+
+```
+
+
+```{r fig.height = 4, fig.width = 10, message = FALSE, warning = FALSE}
+#this is what the team's 2015/2016 season looks like.
+data_normalized[tail(roma_rows, n=1),] %>% 
+  gather("Metric","Value") %>%
+  ggplot(aes(x = reorder(Metric, -Value), y = Value, fill = Metric)) +
+  geom_col() + labs(x = "Metric", y = "Value")
+
+```
+
+
+
+
+## 2.  "Top Four" vs. AS Roma Team Attribute Comparison
+
+```{r, echo = FALSE}
+
+## Connect to the data set
+con <- src_sqlite("euro_soccer.sqlite")
+
+long_team_name <- 'Roma'
+
+country_df <- data.frame(tbl(con, "country"))
+league_df <- data.frame(tbl(con, "league"))
+match_df <- data.frame(tbl(con, "match"))
+player_df <- data.frame(tbl(con, "player"))
+player_atts_df <- data.frame(tbl(con, "player_attributes"))
+team_df <- data.frame(tbl(con, "team"))
+team_atts_df <- data.frame(tbl(con, "team_attributes"))
+
+## Change date to readable format
+match_df$date <- as.Date(match_df$date, "%Y-%m-%d %H:%M:%S")
+
+## Creating columns based on match table to simplify analyses below
+match_df$game_result <- ifelse(match_df$home_team_goal > match_df$away_team_goal, "home", 
+                               ifelse(match_df$away_team_goal > match_df$home_team_goal, "away",
+                                      "tie"))
+
+match_df$total_goals <- (match_df$home_team_goal + match_df$away_team_goal)
+match_df$game_winner <- ifelse(match_df$home_team_goal > match_df$away_team_goal, match_df$home_team_api_id,
+                               ifelse(match_df$away_team_goal > match_df$home_team_goal, match_df$away_team_api_id,'tie'))
+match_df$game_loser <- ifelse(match_df$home_team_goal < match_df$away_team_goal, 
+                              match_df$home_team_api_id,
+                              ifelse(match_df$away_team_goal < match_df$home_team_goal, match_df$away_team_api_id,'tie'))
+match_df$winner_goals <- ifelse(match_df$home_team_goal > match_df$away_team_goal, 
+                                match_df$home_team_goal,
+                                ifelse(match_df$away_team_goal > match_df$home_team_goal, 
+                                       match_df$away_team_goal,match_df$away_team_goal))
+match_df$loser_goals <- ifelse(match_df$home_team_goal < match_df$away_team_goal, 
+                               match_df$home_team_goal,ifelse(match_df$away_team_goal < match_df$home_team_goal, 
+                                                              match_df$away_team_goal,match_df$away_team_goal))
+
+match_df$year<-year(as.POSIXlt(match_df$date, format="%Y-%m-%d"))
+match_df$month<-month(as.POSIXlt(match_df$date, format="%Y-%m-%d"))
+
+## columns to grab from match table (id, country_id, league_id, season, date, 
+## match_api_id, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal, game_result, total_goals, game_winner, game_loser, winner_goals, loser_goals, year, month)
+
+## Get rid of betting sites and XML columns - not needed for this first round of analysis
+matches_df <- sqldf("SELECT id, country_id, league_id, season, date, match_api_id, home_team_api_id, away_team_api_id, home_team_goal, away_team_goal, game_result,
+                    total_goals, game_winner, game_loser, winner_goals, loser_goals, year, month
+                    FROM match_df")
+
+## Get home team long names into table
+match_home_teams <- sqldf("SELECT m.id, country_id, league_id, season, date, match_api_id, 
+                          CASE WHEN m.home_team_api_id = t.team_api_id THEN t.team_long_name ELSE 'NA' END AS home_team,
+                          m.away_team_api_id, home_team_goal, away_team_goal, game_result,
+                          total_goals, game_winner, game_loser, winner_goals, loser_goals, year, month
+                          FROM matches_df m
+                          INNER JOIN team_df t
+                          WHERE home_team_api_id = team_api_id")
+
+### Get away team long names into table
+match_away_teams <- sqldf("SELECT m.id, country_id, league_id, season, date, match_api_id, home_team,
+                          CASE WHEN m.away_team_api_id = t.team_api_id THEN t.team_long_name ELSE 'NA' END AS away_team,
+                          home_team_goal, away_team_goal, game_result,
+                          total_goals, game_winner, game_loser, winner_goals, loser_goals, year, month
+                          FROM match_home_teams m
+                          INNER JOIN team_df t
+                          WHERE away_team_api_id = team_api_id")
+```
+
+This is a base table for different types of analyses.  We can use this to get counts of winners by Season/League - who are top performing teams?
+```{r}
+## Get country and league names and have a final master match table
+
+master_df <- sqldf("SELECT m.id, c.name AS country, l.name AS league, season, date, 
+home_team, away_team, home_team_goal, away_team_goal, game_result, total_goals,
+                   game_winner, game_loser, winner_goals, loser_goals, year, month 
+                   FROM match_away_teams m
+                   INNER JOIN country_df c
+                   ON m.country_id = c.id
+                   INNER JOIN league_df l
+                   ON m.league_id = l.id")
+
+head(master_df) %>% knitr::kable()
+
+```
+
+```{r, echo = FALSE, message = FALSE}
+## Most pts by season_league
+
+## Investigate how many points each home team won
+home_winners <- sqldf("SELECT season, league, home_team, SUM(CASE WHEN game_result = 'home' THEN 3 ELSE 0 END) as home_pts
+                      FROM master_df
+                      GROUP BY season, league, home_team
+                      ORDER BY home_pts desc")
+
+## Investigate how many points each away team won
+away_winners <- sqldf("SELECT season, league, away_team, SUM(CASE WHEN game_result = 'away' THEN 3 ELSE 0 END) as away_pts
+                      FROM master_df
+                      GROUP BY season, league, away_team
+                      ORDER BY away_pts desc")
+
+## What league shows up the most?
+best_home_league <- count(home_winners, league)
+
+best_home_league <- best_home_league[order(-best_home_league$n),]
+
+best_away_league <- count(away_winners, league)
+
+best_away_league <- best_away_league[order(-best_away_league$n),]
+```
+
+
+```{r}
+## Show the top four leagues - by home winners
+best_home_league[1:4,] %>% knitr::kable()
+
+## Show the top four leagues - by away winners
+best_away_league[1:4,] %>% knitr::kable()
+```
+
+The leagues with the most home and away team wins are England Premier League, France Ligue 1, Italy Serie A, and Spain LIGA BBVA, we will focus our team level analyses solely on these leagues. This leagues currently have the best teams, so if we can target the 4 highest performing teams in each league (16 teams total), we can gain insights into what allows this teams to excel.
+
+
+```{r echo = FALSE, message = FALSE}
+## Next we'll filter our matches data to only have matches from these leagues
+
+best_leagues <- c(best_home_league$league[1:4])
+
+best_league_matches <- sqldf("SELECT * FROM master_df
+                             WHERE league IN ('England Premier League', 'France Ligue 1', 'Italy Serie A', 
+                             'Spain LIGA BBVA')")
+
+## OK!  Now we're getting somewhere.  We have a data set with just the league matches
+## that we care about - our top four leagues.
+
+## Now we need to see who our top four teams for each league are - we can do this 
+## by season 
+
+## Let's just get counts of wins - regardless of home or away - and sort by team
+all_wins_df <- sqldf("SELECT season, league, CASE WHEN game_result = 'home' then home_team WHEN game_result = 'away' then away_team ELSE game_result END AS result
+                     FROM best_league_matches")
+
+head(all_wins_df) 
+
+## Get the winning teams for each season and league
+top_teams_by_wins_df <- sqldf("SELECT season, league, result as winning_team, count(result) as num_wins
+                              FROM all_wins_df
+                              WHERE result != 'tie'
+                              GROUP by season, league, winning_team
+                              ORDER BY season, league, num_wins desc")
+
+## Create a league position column so that we can just grab the toup four of each season
+top_teams_by_wins_df <- top_teams_by_wins_df %>%
+  group_by(season, league) %>%
+  mutate(league_position = rank(-num_wins, ties.method = "first"))
+
+top_four_teams <- filter(top_teams_by_wins_df, league_position <= 4)
+```
+
+
+```{r fig.height = 15, fig.width = 15, fig.align = "center"}
+ggplot(top_four_teams) +
+  aes(x = league, colour = winning_team, weight = num_wins) +
+  geom_bar(position = "dodge", fill = "#0c4c8a") +
+  scale_color_hue() +
+  coord_flip() +
+  theme_gray() +
+  facet_wrap(vars(season))
+```
+
+OK we have a list of teams that are consistently peforming well, placing the top four in each of our identified leagues.  Next we will try to identify want to see what attributes/characteristics comprise the make-up of the team.
+```{r, echo = FALSE, message = FALSE}
+
+## Let's get the list of team names
+
+## Subset my winning teams
+winning_teams <- unique(top_four_teams$winning_team)
+
+## only need the api_id and team_name
+team_cols <- c("team_api_id", "team_long_name")
+
+## Filter out just the winning teams
+winning_teams_df <- filter(team_df, team_long_name %in% winning_teams)
+
+## Filter out on the columns that I want
+winning_teams_df <- winning_teams_df[team_cols]
+
+## Reconfigure the date field so I can create a "season" flag
+team_atts_df$date <- as.Date(team_atts_df$date, "%Y-%m-%d %H:%M:%S")
+team_atts_df$year<-year(as.POSIXlt(team_atts_df$date, format="%Y-%m-%d"))
+team_atts_df$month<-month(as.POSIXlt(team_atts_df$date, format="%Y-%m-%d"))
+
+## Grab the season so that I can merge on successful teams and the season they were winners
+team_att_season_df <- sqldf("SELECT DISTINCT t.id, team_fifa_api_id, t.team_api_id, team_long_name as team, buildUpPlaySpeed, buildUpPlaySpeedClass, buildUpPlayDribbling,
+                                buildUpPlayPassing, buildUpPlayPassingClass, buildUpPlayPositioningClass, chanceCreationPassing, chanceCreationPassingClass,
+                            chanceCreationCrossing, chanceCreationCrossingClass, chanceCreationShooting, chanceCreationShootingClass, chanceCreationPositioningClass,
+                              defencePressure, defencePressureClass, defenceAggression, defenceAggressionClass, defenceTeamWidth,
+                            defenceTeamWidthClass, defenceDefenderLineClass, t.year, t.month, m.season
+                              FROM team_atts_df t
+                              INNER JOIN matches_df m
+                              ON t.year = m.year
+                              AND t.month = m.month
+                              INNER JOIN winning_teams_df w
+                              ON w.team_api_id = t.team_api_id
+                              ORDER BY season, team")
+
+```
+
+
+```{r }
+
+head(team_att_season_df) %>% knitr::kable()
+```
+
+Data Preparation
+
+1.  Create three distinct categories for team attributes: Attack, Midfield, Defense
+2.  Subset each category into it's own table for easier analysis
+3.  View the attributes for each category
+```{r echo = FALSE, message = FALSE}
+
+
+## Attacking Team Attributes - remove buildUpPlayDribbling due to NULL values
+attack <- c('buildUpPlaySpeed', 'buildUpPlaySpeedClass', 'buildUpPlayPassing',
+            'buildUpPlayPassingClass', 'buildUpPlayPositioningClass')
+
+## Midfield Team Attributes
+midfield <- c('chanceCreationPassing', 'chanceCreationPassingClass', 'chanceCreationCrossing', 'chanceCreationCrossingClass',
+              'chanceCreationShooting', 'chanceCreationShootingClass', 'chanceCreationPositioningClass')
+
+## Defense Team Attributes
+defense <- c('defencePressure', 'defencePressureClass', 'defenceAggression', 'defenceAggressionClass',
+             'defenceTeamWidth', 'defenceTeamWidthClass', 'defenceDefenderLineClass')
+```
+
+Some samples of the tables and the attributes they contain
+
+````{r}
+attack_df <- team_att_season_df[, attack]
+
+midfield_df <- team_att_season_df[, midfield]
+
+defense_df <- team_att_season_df[, defense]
+
+head(attack_df) %>% knitr::kable()
+head(midfield_df) %>% knitr::kable()
+head(defense_df) %>% knitr::kable()
+
+```
+
+Summary of Top Four Teams Attacking Attributes
+
+```{r}
+## Summary of top four teams' offensive numeric attributes
+## Average build up play speed is 52/100 and passing (accuracy) is 45/100 - Roma can do better here!
+summary(dplyr::select_if(attack_df, is.numeric)) %>% knitr::kable()
+
+## Balanced speed for building up play, mix of long/short passing for build up play
+## build up position is organized - teams that are successful play with balance (can we exploit this with Roma?)
+dplyr::select_if(attack_df, is.character) %>%
+  group_by(buildUpPlaySpeedClass, buildUpPlayPassingClass, buildUpPlayPositioningClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq) %>% knitr::kable()
+
+```
+
+Average (mean) build up play speed is 52.46 for top performing teams and build up passing is 45.6. This points toward top performing teams having a “balanced” build up play style.
+
+Summary of Toup Four Teams Midfield Attributes
+
+```{r}
+## Summary of top four teams' midfield numeric attributes
+summary(dplyr::select_if(midfield_df, is.numeric)) %>% knitr::kable()
+
+## Successful teams create chances from midfield normally, from cross normal, and shooting opportunities normal
+## And are organized in there positioning.  Nothing too suprising about that.
+dplyr::select_if(midfield_df, is.character) %>%
+  group_by(chanceCreationPassingClass, chanceCreationCrossingClass, chanceCreationShootingClass, chanceCreationPositioningClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq) %>% knitr::kable()
+```
+
+When looking at the midfield categories, we see that passing on average is 53.19, crossing is 55.58, and shooting is 55.75. This data indicates that successful teams are utilizing their midfield effectively to create chances and are organized in their positioning. This is not too surprising because we expect top teams to be utilizing the midfield when playing.
+
+Summary of Toup Four Teams Defense Attributes
+```{r}
+
+## Summary of top four teams' defense numeric attributes
+summary(dplyr::select_if(defense_df, is.numeric)) %>% knitr::kable()
+
+dplyr::select_if(defense_df, is.character) %>%
+  group_by(defencePressureClass, defenceAggressionClass, defenceTeamWidthClass, defenceDefenderLineClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq) %>% knitr::kable()
+
+```
+
+Top performing teams have an average defense pressure of 48.36, aggression of 50.67, and team width of 53.39. Again, nothing too surprising here about how top defensive groups are playing.
+
+Now that we've analyzed successful teams, we want to see if there is area for improvement, either in attack, midfield, or defense for AS Roma.  To do that, we need to look at their team attributes.
+
+```{r, echo = FALSE, message = FALSE}
+## Get team attributes for AS Roma
+roma_att_season_df <- sqldf("SELECT DISTINCT t.id, t.team_fifa_api_id, t.team_api_id, team_long_name as team, buildUpPlaySpeed, buildUpPlaySpeedClass,
+                                buildUpPlayPassing, buildUpPlayPassingClass, buildUpPlayPositioningClass, chanceCreationPassing, chanceCreationPassingClass,
+                            chanceCreationCrossing, chanceCreationCrossingClass, chanceCreationShooting, chanceCreationShootingClass, chanceCreationPositioningClass,
+                            defencePressure, defencePressureClass, defenceAggression, defenceAggressionClass, defenceTeamWidth,
+                            defenceTeamWidthClass, defenceDefenderLineClass, t.year, t.month, m.season
+                            FROM team_atts_df t
+                            INNER JOIN matches_df m
+                            ON t.year = m.year
+                            AND t.month = m.month
+                            INNER JOIN team_df tm
+                            ON tm.team_api_id = t.team_api_id
+                            WHERE tm.team_long_name = 'Roma'
+                            ORDER BY season, team")
+
+
+## Subset each set of attributes similarly to the top 4 teams above
+roma_attack_df <- roma_att_season_df[, attack]
+
+## Get Roma's midfield attributes
+roma_midfield_df <- roma_att_season_df[, midfield]
+
+## Get defensive attributes for Roma
+roma_defense_df <- roma_att_season_df[, defense]
+```
+
+Summary of AS Roma Attacking Attributes
+```{r}
+## Summary of offensive numeric attributes
+summary(dplyr::select_if(roma_attack_df, is.numeric)) %>% knitr::kable()
+
+## Roma tends to play fast, with a mixed set of passing, but keep an organized shape
+dplyr::select_if(roma_attack_df, is.character) %>%
+  group_by(buildUpPlaySpeedClass, buildUpPlayPassingClass, buildUpPlayPositioningClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq) %>% knitr::kable()
+```
+
+AS Roma has an average play speed of 63.75 and a passing accuracy of 40.00. Top performing teams have measures of 52.46 and 45.6 respectively. This is indicating that compared to top teams, AS Roma is playing quicker and missing more of their passes. AS Roma should consider slowing down their play speed and ensure that passes are being made accurately and deliberately to exploit opportunities on the field.
+
+Summary of AS Roma Midfield Attributes
+```{r}
+summary(dplyr::select_if(roma_midfield_df, is.numeric))  %>% knitr::kable()
+
+## Risky chance creation, free form creation / positioning - fluid midfield
+dplyr::select_if(roma_midfield_df, is.character) %>%
+  group_by(chanceCreationPassingClass, chanceCreationCrossingClass, 
+           chanceCreationShootingClass, chanceCreationPositioningClass) %>%
+      summarise(Freq = n()) %>%
+          arrange(-Freq)  %>% knitr::kable()
+```
+
+AS Roma has an average passing creation of 68.83, crossing creation of 56.33, and shooting creation of 60.50. Top performing teams have metrics of 53.19, 55.58, and 55.75 respectively. This indicates that AS Roma is actually playing slightly better on average in the midfield than top performing teams.
+
+Summary of AS Roma Defense Attributes
+```{r}
+
+## Summary of defensive numeric attributes
+## Low pressure, low agression, 50/100 team width
+summary(dplyr::select_if(roma_defense_df, is.numeric)) %>% knitr::kable()
+
+## Summary of defensive categorical attributes
+## they play the press, normal team shape and a high line due to their offside trap scheme 
+# - maybe this is an area for improvement?
+dplyr::select_if(roma_defense_df, is.character) %>%
+  group_by(defencePressureClass, defenceAggressionClass, defenceTeamWidthClass, defenceDefenderLineClass) %>%
+  summarise(Freq = n()) %>%
+  arrange(-Freq) %>% knitr::kable()
+```
+
+AS Roma has an average defense pressure of 42.83, average aggression of 47.17, and average team width of 50.83. Top teams have metrics of 48.36, 50.67, and 53.39 respectively. This indicates AS Roma should increase its pressure and aggression on defense to mimic how top performing teams often play defense.
+
+Now that we've seen how AS Roma compares to our "competitors" in the top four of the Premier League, Serie A, La Liga, and Ligue Une, let's see if we can dig into player attributes for Roma and what makes them stand out?
+
+## 3.  Player Analysis based on 2015/2016 season for what players should be included in team of future
+```{r, echo = FALSE, message = FALSE}
+long_team_name <- 'Roma'
+match_tbl <- data.frame(tbl(con, "match"))
+country_tbl <- data.frame(tbl(con, "country"))
+league_tbl <- data.frame(tbl(con, "league"))
+player_tbl <- data.frame(tbl(con, "player"))
+player_atts_tbl <- data.frame(tbl(con, "player_attributes"))
+team_tbl <- data.frame(tbl(con, "team"))
+team_atts_tbl <- data.frame(tbl(con, "team_attributes"))
+
+roma_record <- team_tbl %>% collect() %>% filter(grepl(long_team_name, team_long_name))
+home_matches <- filter(match_tbl, home_team_api_id == roma_record$team_api_id)
+match_outcomes_per_match <- match_tbl %>% mutate(goal_diff=home_team_goal - away_team_goal) %>% 
+  select(id, goal_diff) %>% rename(match_id=id)
+roma_players_per_match <- select(home_matches, id,matches("home_player_[[:digit:]]")) %>%
+                collect() %>% gather(player, player_api_id, -id) %>% rename(match_id = id)
+match_tbl <- collect(match_tbl)
+player_tbl <- collect(player_tbl)
+```
+
+
+```{r, echo = FALSE, message = FALSE, include=FALSE}
+roma_players_per_match$player_api_id <- as.character(roma_players_per_match$player_api_id)
+player_tbl$player_api_id <- as.character(player_tbl$player_api_id)
+tx <- left_join(roma_players_per_match, player_tbl, by=c("player_api_id")) %>% select(match_id, player, player_name)
+df <- spread(tx, player, player_name)
+hom_matches <- home_matches %>% select(id, country_id, league_id, season,
+                                       stage, date, match_api_id, home_team_api_id,
+                                       away_team_api_id, home_team_goal, away_team_goal)
+dframe <- left_join(hom_matches, df, by=c("id" = "match_id"), copy=TRUE) %>% 
+  mutate(Win_Loss_Tie = case_when(home_team_goal - away_team_goal > 0 ~ "W",
+                                  home_team_goal - away_team_goal < 0 ~ "L",
+                                  home_team_goal - away_team_goal == 0 ~ "T"))
+dframex <- dframe %>% 
+  select(season, home_player_1, home_player_2, home_player_3, home_player_4, 
+         home_player_5, home_player_6, home_player_7, home_player_8, home_player_9, 
+         Win_Loss_Tie) %>% 
+  rename(player_1=home_player_1, player_2=home_player_2, player_3=home_player_3, 
+         player_4=home_player_4, player_5=home_player_5, player_6=home_player_6, 
+         player_7=home_player_7, player_8=home_player_8, player_9=home_player_9)
+```
+
+```{r, include=FALSE}
+away_matches <- filter(match_tbl, away_team_api_id == roma_record$team_api_id)
+away_roma_players_per_match <- select(away_matches, id,matches("away_player_[[:digit:]]")) %>%
+  collect() %>% gather(player, player_api_id, -id) %>% rename(match_id=id)
+match_outcomes_per_match <- match_tbl %>% mutate(goal_diff = home_team_goal - away_team_goal) %>% 
+  select(id, goal_diff) %>% rename(match_id=id)
+away_roma_players_per_match$player_api_id <- as.character(away_roma_players_per_match$player_api_id)
+tx1 <- left_join(away_roma_players_per_match, player_tbl, by=c("player_api_id")) %>% 
+  select(match_id, player, player_name)
+df1 <- spread(tx1, player, player_name)
+awa_matches <- away_matches %>% select(id, country_id, league_id, season,
+                                       stage, date, match_api_id, home_team_api_id,
+                                       away_team_api_id, home_team_goal, away_team_goal)
+dframe1 <- left_join(awa_matches, df1, by=c("id" = "match_id"), copy=TRUE) %>% 
+  mutate(Win_Loss_Tie = case_when(home_team_goal - away_team_goal < 0 ~ "W",
+                                  home_team_goal - away_team_goal > 0 ~ "L",
+                                  home_team_goal - away_team_goal == 0 ~ "T"))
+dframex1 <- dframe1 %>% 
+  select(season, away_player_1, away_player_2, away_player_3, away_player_4, 
+         away_player_5, away_player_6, away_player_7, away_player_8, away_player_9, 
+         Win_Loss_Tie) %>% 
+  rename(player_1=away_player_1, player_2=away_player_2, player_3=away_player_3, 
+         player_4=away_player_4, player_5=away_player_5, player_6=away_player_6, 
+         player_7=away_player_7, player_8=away_player_8, player_9=away_player_9)
+# dframex1
+```
+
+
+```{r, echo = FALSE, message = FALSE}
+soccer_df <- rbind(collect(dframex), collect(dframex1))
+# checking dimensions
+# soccer_df %>% group_by(Win_Loss_Tie) %>% summarise(count_data = n())
+# filter for latest year
+
+## Commented out these lines - not required to write to CSV
+# soccer_16 <- soccer_df %>% filter(season == "2015/2016") %>% select(-c("season"))
+# write.csv(soccer_16, "all_data.csv", row.names = FALSE)
+```
+
+
+```{r fig.height=15, fig.width=10, message=FALSE, warning=FALSE}
+
+# Grab the all_data CSV using your working directory (have it all in one place)
+csv_file <- "all_data.csv"
+
+all_data = read.transactions(csv_file, format = "basket",
+                              sep = ",", rm.duplicates = TRUE, header = TRUE)
+
+itemFrequencyPlot(all_data, ylim = c(0, 1), topN = 30)
+```
+
+```{r fig.height=15, fig.width=10, message=FALSE, warning=FALSE}
+results <- data.frame()
+for (n in seq(from=0.7, to=1.0, by=0.1)) {
+  rules <- apriori(all_data, parameter=list(supp=0.2, conf=n, target="rules", minlen=2))
+  dfxx = data.frame(lhs=labels(lhs(rules)), rhs=labels(rhs(rules)),rules@quality)
+  results <- rbind(results, dfxx)
+}
+xresults <- results %>% filter(rhs == "{W}")
+xresults <- xresults[(!duplicated(xresults)), ]
+xresults2 <- head(xresults %>% arrange(desc(xresults$lift)), 20)
+ggplot(xresults2, aes(x=reorder(xresults2$lhs, xresults2$lift), y=xresults2$lift)) + 
+  geom_point() + coord_flip() + 
+  labs(title="Association Rules\n", subtitle="Wins",x="LHS", y="Lift") +
+  ggrepel::geom_text_repel(label=paste0("Conf.: ", round(xresults2$confidence,2)))
+```
+
+## 4.  Recommendations
+
+Final Takeaways:
+
+* Winning teams increase crosses, shots taken, corners, and ball possession time
+* Winning teams decrease penalties
+* Winning teams have offensive play styles that are slightly slower than AS Roma, but more precise with their passing
+* Winning teams have defensive play styles that are slightly more aggressive and add more pressure than AS Roma
+* AS Roma has a strong midfield and should capitalize on that as a key element of their play style
+
+Final Recommendation:
+
+AS Roma has a few opportunities to greatly improve performance and be more successful within its league. First, from a team strategy, AS Roma should focus more on precise and accurate passing while slowing down play on oense. This will allow the game to progress and expose vulnerabilities in the opposing team that can be exploited. AS Roma should keep its midfield play style similar to how it already is. Lastly, AS Roma should increase aggression and pressure on defense. This will create opportunities for take-aways and allow less shots on goal. In specific aspects of AS Roma’s play, the team should focus on increasing the number of crosses, shots taken, possession time, and corner kicks. Though obvious, best teams utilize these aspects of their game to take advantage of other teams. Also, AS Roma should reduce penalties. Successful
+teams oen have low numbers of penalties in their games. Lastly, we used our association rules analysis to determine specific players that played together that led to increases in AS Roma’s likelihood of winning during the most recent season of currently available data. Players like Konstantinos Manolas (defender), Radja Nainnggolan (defender), Seydou Keita (midfielder), and Wojciech Szczesny (goalkeeper) likely exhibit attributes of players who will lead AS Roma to success in future seasons.
