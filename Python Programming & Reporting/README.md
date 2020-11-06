@@ -6,4 +6,8 @@
 
 3.  Big Data Analytics (Hadoop, Hive, AWS, PySpark, Introduction to Machine Learning)
 
-4.  Miscalleanous Jupyter Notebooks (data visualizations for case studies, side projects)
+4.  Predictive Analytics & Machine Leaning (lab work and final project)
+
+5.  Day of Data 2020 (regression analysis using Keras and neural networks)
+
+6.  Miscalleanous Jupyter Notebooks (data visualizations for case studies, side projects)
