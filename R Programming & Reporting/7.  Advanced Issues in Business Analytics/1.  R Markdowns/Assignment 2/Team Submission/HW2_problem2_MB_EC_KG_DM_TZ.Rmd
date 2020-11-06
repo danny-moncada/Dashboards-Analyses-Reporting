@@ -1,0 +1,190 @@
+---
+title: "Problem 2 (10 credits)"
+subtitle: "HW2"
+author: "Michael Brucek (mbrucek), Eduardo Chavez (echavezh), Kevin Grady (grady133), Danny Moncada (monca016), Tian Zhang (zhan7003)"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: pdf_document
+---
+
+```{r}
+suppressWarnings(suppressPackageStartupMessages({
+  library(TSA)
+  library(forecast)
+  library(ggplot2)
+  library(dplyr)
+}))
+```
+
+# Characteristic Polynomials
+
+## Question 1
+
+Assume $Y_t$ is the following stochastic process such as
+
+$$
+Y_t = 2.2\cdot Y_{t-1} - 1.57\cdot Y_{t-2} + 0.36\cdot Y_{t-3} + e_t
+$$
+where $e_i\sim N(0,1)$ i.i.d
+
+### a) (1 credit)
+
+First, let's determine whether the process is stationary or not by computing the roots of the characteristic polynomial.
+
+**Hints**:
+
+  - use `polyroot()` function 
+
+Please pick the smallest root as $x_1$ and the larger root as $x_3$:
+
+```{r}
+x_1 <- 1.111111-0i
+x_2 <- 1.250000+0i
+x_3 <- 2.000000-0i
+```
+
+(please include only the numerical answer above not the computation. An acceptable format for your answer is such as `x_1 <- 5`)
+
+### b) (1 credit)
+
+Based on your answer above conclude whether the process is stationary or not:
+
+```{r}
+stationary <- TRUE 
+# All roots are either >1 or <-1
+```
+
+### c) (2 credits)
+
+Please generate $N=100$ sample paths of length $T=100$ for this stochastic process.
+
+* Please save the results into a data.frame `df2c` where:
+    - column `df2c$Y` has the values of the process
+    - column `df2c$id` has the id of the sample path
+    - column `df2c$t` has the time
+
+```{r}
+set.seed(42) # Please do not change the seed
+
+N <- 100L
+T <- 100L
+
+ar_constant <- function(t) {
+  Y = rnorm(n = t)
+  for(i in 4:t) {
+    Y[i] = 2.2*Y[i-1] - 1.57*Y[i-2] + 0.36*Y[i-3] + rnorm(1)
+  }
+  return(Y)
+}
+
+df2c <- data.frame(id = rep(1:N, each = T), t = rep(1:T, N)) %>% 
+                          group_by(id) %>% 
+                            mutate(Y = ar_constant(T))
+```
+
+### d) (1 credit)
+
+Please plot the sample paths that you generated in the previous question
+
+* Please save your plot into variable `p1d`
+
+**Hints:**
+
+  - use `ggplot` and take advantage of the long format of the data
+  - please don't change the color (keep the lines black) but do put `alpha=0.05` into your `geom_line` to make sample paths somewhat transparent.
+  - do not use `geom_points` just `geom_line` is fine
+  
+* As you will see from your plot:
+    - the fainter the line the less likely the stochastic process would reach this spot
+
+```{r}
+p1d <- ggplot(df2c, aes(x = t, y = Y)) + geom_line(alpha = 0.5) +
+          ggtitle("AR(3) Stationary Process: Y_t = 2.2*Y{t-1} - 1.57*Y{t-2} + 0.36*Y{t-3} + e_t ")
+p1d
+```
+
+
+
+## Question 2 (5 credits)
+
+Repeat a) - d) in Question 1 for the following stochastic process $Y_t$:
+
+$$
+Y_t = 2.4\cdot Y_{t-1} - 1.55\cdot Y_{t-2} + 0.3\cdot Y_{t-3} + e_t
+$$
+where $e_i\sim N(0,1)$ i.i.d
+
+Compared with Question 1, we expect to see significant difference in the stationarity from the plot, although the coefficients are very close.
+
+
+### a) 
+
+First, let's determine whether the process is stationary or not by computing the roots of the characteristic polynomial.
+
+**Hints**:
+
+  - use `polyroot()` function 
+
+Please pick the smallest root as $x_1$ and the larger root as $x_3$:
+
+```{r}
+x_1 <- 0.6666667+0i
+x_2 <- 2.0000000-0i
+x_3 <- 2.5000000+0i
+```
+
+(please include only the numerical answer above not the computation. An acceptable format for your answer is such as `x_1 <- 5`)
+
+### b) 
+
+Based on your answer above conclude whether the process is stationary or not:
+
+```{r}
+stationary <- FALSE 
+## All roots are NOT >1 or <-1, as x_1 = 2/3
+```
+
+### c) 
+
+Please generate $N=100$ sample paths of length $T=20$ for this stochastic process.
+
+* Please save the results into a data.frame `df2c` where:
+    - column `df2c$Y` has the values of the process
+    - column `df2c$id` has the id of the sample path
+    - column `df2c$t` has the time
+
+```{r}
+set.seed(42) # Please do not change the seed
+
+N <- 100L
+T <- 20L
+
+ar_constant <- function(t) {
+  Y = rnorm(n = t)
+  for(i in 4:t){
+    Y[i] = 2.4*Y[i-1] - 1.55*Y[i-2] + 0.3*Y[i-3] + rnorm(1)
+  }
+  return(Y)
+}
+
+df2c <- data.frame(id = rep(1:N, each = T), t = rep(1:T,N)) %>% 
+              group_by(id) %>%
+                mutate(Y = ar_constant(T))
+```
+
+### d)
+
+Please plot the sample paths that you generated in the previous question. You should see the effect of the roots of the polynomial on the sample paths of the process.
+
+* Please save your plot into variable `p1d`
+
+**Hints:**
+
+  - use `ggplot` and take advantage of the long format of the data
+  - do not use `geom_points` just `geom_line` is fine
+  
+
+```{r}
+p1d <- ggplot(df2c, aes(x = t, y = Y)) + geom_line(alpha = 0.5) +
+  ggtitle("AR(3) Process: Y_t = 2.4*Y{t-1} - 1.55*Y{t-2} + 0.3*Y{t-3} + e_t ")
+p1d
+```
