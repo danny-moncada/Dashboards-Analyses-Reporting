@@ -24,3 +24,13 @@
 * R Markdowns
 * Jupyter Notebooks
 * PDF outputs
+
+## 6.  Causal Inference via Econometrics (coursework)
+
+* R Markdowns
+* PDF outputs
+
+## 7.  Advanced Issues in Business Analytics (coursework)
+
+* R Markdowns
+* PDF Outputs

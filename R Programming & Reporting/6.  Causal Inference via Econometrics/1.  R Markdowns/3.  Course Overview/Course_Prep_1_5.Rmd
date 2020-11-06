@@ -1,0 +1,806 @@
+---
+title: "Final Exam Prep Sessions 1 - 5"
+subtitle: "MSBA 6440: Causal Inference via Experimentation"
+author: "Danny Moncada (monca016)"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: 
+  pdf_document:
+    includes:
+      in_header: my_header.tex
+---
+
+```{r, echo = FALSE}
+
+## Suppress warnings for loading packages
+suppressWarnings(suppressPackageStartupMessages({
+library(data.table)
+library(readr)
+library(dplyr)
+library(plm)
+library(stargazer)
+library(MESS)
+library(lmtest)
+library(ggplot2)
+library(Synth)
+library(lubridate)
+library(MatchIt)
+library(cem)
+library(cobalt)
+library(Matching)
+library(rbounds)
+library(tableone)
+library(lmtest)
+}))
+```
+
+# Session 1-3: Randomized Experiments (lm)
+
+## Correlation =/= Causation  
+![Necessary but not sufficient](/Users/danny/Documents/images/Correlation.png)
+
+## Requirements for Causality
+
+* **Correlation**
+  + X must be associated with Y.
+
+* **Temporal Precendence**
+  + Variation in X must precede the variation in Y
+
+* No **Endogeneity**
+  + No unobserved confounds, no measurement error, no simultaneity, no sample selection.
+
+## Taxonomy of "Threats to Causal Inference"
+
+$$ y_i = \alpha + \beta x_i + \gamma z_i + \mu_i  $$
+
+* **Omitted Variables**
+  + unobserved confounders for X.
+
+* **Simultaneity**
+  + X and Y cause each other.
+  
+* **Selection**
+  + Whether we observe a representative sample.
+  
+* **Mis-measurement**
+  + Our measure of X is imperfect.
+
+![You are interested in the impact of X on Y, but there are other variables that you are not including in your model; e.g. coffee drinking is linked with smoking.](/Users/danny/Documents/images/OmittedVariables.png)
+
+## The Take-Away
+
+![There's no way to control away all other variables, and thus what to control.](/Users/danny/Documents/images/KnowNothing.png)
+
+![Is our sample representative of the population we're looking to model?](/Users/danny/Documents/images/SelectionBias.png)
+
+![Y may affect X.](/Users/danny/Documents/images/SimultaneityBias.png)
+
+![We're interested on the impact of X on Y, but the measures of X are no correct.](/Users/danny/Documents/images/MeasurementError.png)
+
+![Something that is in the error term that is not being modeled.](/Users/danny/Documents/images/Endogeneity.png)
+
+```{r - simulating endogeneity}
+
+# Author: Gordon Burtch and Gautam Ray
+# Course: MSBA 6440
+# Session: Causality and Endogeneity
+# Topic: Simulating Endogeneity
+
+set.seed(100)
+
+## Some examples of what happens when we ignore different kinds of endogeneity
+
+# 1) Measurement Error
+# We build our variable X, and then also an erroneously measured version of X.
+X <- rnorm(200, mean = 50, sd=7)
+X_m <- X + rnorm(200,mean=4, sd=15)
+
+# Now we simulate Y using the true data generating process (accurately measured X)
+Y <- 0.5*X + rnorm(200,mean=0,sd=1)
+
+# You can see that the estimate is hugely deflated when we ignore the measurement error.
+summary(lm(Y~X))
+
+summary(lm(Y~X_m))
+
+# 2) Omitted Variables // Correlated Unobservable
+
+# Let's add in a confounder for X that we will "not observe" in our regression and see 
+# what it does.
+Z <- rnorm(200, mean=3, sd=.5) - X
+Y <- 0.5*X + 2*Z + rnorm(200,mean=0,sd=1)
+
+# You can see that ignoring Z causes X to be downward biased (because Z is negatively 
+# correlated with X)
+summary(lm(Y~X))
+
+summary(lm(Y~X+Z))
+
+```
+
+## Establishing Causality
+
+![](/Users/danny/Documents/images/EstablishCausality.png)
+
+* Make X exogenous/orthogonal to make it uncorrelated with the error term
+
+* Determine what problems observational data may bring out
+
+![](/Users/danny/Documents/images/RandomizedExperiments.png)
+
+```{r - BMI example}
+
+# BMI example
+# Code below is used to generate simulated dataset
+
+set.seed(1000)
+gender=sample(0:1,10000,TRUE)
+#weight in lb for men and women
+weight=rnorm(10000, mean = 180, sd = 40) + gender*rnorm(10000,mean=-30,sd=10)
+#height in in for men and women
+height=rnorm(10000, mean = 60, sd = 1) + gender*rnorm(10000,mean=-6,sd=0.5)
+#using general formula
+bmi=(weight*703)/(height*height)+rnorm(10000, mean=0, sd = 3)
+Data<-data.frame(gender, weight, height, bmi)
+head(Data)
+
+hist(Data$weight[Data$gender==1],col=rgb(1,0,0,.5),ylim=c(0,1000),xlim=c(0,350))
+hist(Data$weight[Data$gender==0],col=rgb(0,0,1,.5),add=T)
+abline(v=mean(Data$weight[Data$gender==1]),col="red")
+abline(v=mean(Data$weight[Data$gender==0]),col="blue")
+
+# check averages
+mean(weight)
+
+summary(lm(weight~1)) ## run a regression to calculate the mean (run the regression against 1)
+
+summary(lm(weight~gender)) #average weight
+
+## Estimate Std. Error t value Pr(>|t|)
+## (Intercept) 179.6254 0.5734 313.3 <2e-16 ***
+## gender -28.5304 0.8104 -35.2 <2e-16 ***
+## Men's average weight is 179 lbs.
+## Women's average weight is 28 lbs lighter than men.
+
+summary(lm(height~gender)) #average height
+
+## Estimate Std. Error t value Pr(>|t|)
+## (Intercept) 60.00062 0.01515 3959.2 <2e-16 ***
+## gender -5.98404 0.02142 -279.4 <2e-16 ***
+## Men's average height is 60 inches
+3
+
+## Women's average height is ~6 inches shorter.
+
+# BMI as a function of weight and height #
+summary(lm(log(bmi)~log(weight)+log(height))) #general formula
+
+## Estimate Std. Error t value Pr(>|t|)
+## (Intercept) 6.624136 0.072464 91.41 <2e-16 ***
+## log(weight) 1.015946 0.003547 286.45 <2e-16 ***
+## log(height) -2.038372 0.018753 -108.70 <2e-16 ***
+
+## Intercept: Not meaningful (geometric mean for people with 0 weight and 0 height)
+## When we have logs on both sides, we can interpret the coefficient like this:
+## for every 1% increase in weight (lbs), we increase BMI by 1%
+## for every 10% increase in height (in), we decrease BMI by 18%
+
+summary(lm(log(bmi)~log(weight)*gender+log(height)*gender)) #adjusted for men and women
+
+## Estimate Std. Error t value Pr(>|t|)
+## (Intercept) 6.733596 0.344313 19.557 <2e-16 ***
+## log(weight) 1.012185 0.005982 169.212 <2e-16 ***
+## gender -0.226349 0.438641 -0.516 0.606
+## log(height) -2.060376 0.083729 -24.608 <2e-16 ***
+## log(weight):gender 0.005958 0.007460 0.799 0.424
+## gender:log(height) 0.048578 0.107759 0.451 0.652
+
+## gender: Essentially 0, there is no relationship with gender and BMI
+## log(weight): gender: The interaction betweeen log(weight) and gender is insignificant
+## gender: log(height): The interaction between log(height) and gender is insignificant
+```
+
+![](/Users/danny/Documents/images/BlockRandomization.png)
+* On the fly: randomize people as they come onsite and check at the end if they are balanced on covariates you care about
+
+* Block: do this apriori (before making observations)
+
+## Effect of a Magic Pill
+
+* Imagine we have a magic pill we want to evaluate, to see if it reduces BMI.  We randomly assign pill to half of subjects using coin toss for each one.
+
+$$ BMI_i = \alpha + \beta_1 MagicPill_i + \mu_i $$ 
+
+* If MagicPill = 1, you are called treated, and if it = 0 you are called Control.
+  + This is an A/B test.
+  
+* Our causal effect:
+
+$$ E(BMI | MagicPill = 1) - E(BMI | MagicPill = 0) $$
+  + This is a t-test.
+
+```{r - BMI Randomization}
+
+#*** MSBA 6440 ***#
+#*** Gordon Burtch and Gautam Ray***#
+#*** Code for Lecture 2 ***#
+
+## Set working dir - for this example only
+setwd("~/MSBA 2020 All Files/Spring 2020/MSBA 6440 - Causal Inference via Ecnmtrcs Exprmnt/Week 2 - Design of Experiments")
+
+# BMI example with randomization
+
+BMI = read.csv("BMI_pill.csv")
+#check balance of some observable covariates between treated and control groups.
+t.test(data=BMI, height~magicpill)
+
+t.test(data=BMI, gender~magicpill)
+
+t.test(data=BMI, weight~magicpill)
+
+#Let's see if BMI changes with receipt of the randomly assigned pill.
+mp<-lm(log(bmi)~magicpill, data = BMI)
+summary(mp)
+
+#Let's see if this changes when we control for some observables (if its randomly assigned 
+# then this won't make a difference)
+mphw<-lm(log(bmi)~magicpill+log(height) + log(weight), data = BMI)
+summary(mphw)
+
+
+mphwg<-lm(log(bmi)~magicpill+log(height) + log(weight) + gender, data = BMI)
+summary(mphwg)
+
+stargazer(mp,mphw,mphwg, type="text",column.labels=c("magic pill","magic pill with controls", 
+                                                     "magic pill with more controls"))
+
+```
+
+![](/Users/danny/Documents/images/CovX.png)
+* There were no systematic difference between the treated and control groups.
+
+## To Determine Sample Size Requirements
+
+* **Significance threshold**, *alpha* (< 0.05)
+
+* Assumed **power** level, *beta* (> 0.80)
+
+* **Effect size**, *delta*
+
+* **Sample size**, *N*
+
+![](/Users/danny/Documents/images/Alpha1.png)
+
+![](/Users/danny/Documents/images/Alpha2.png)
+
+![We want probability to be less than 20% for type II error.](/Users/danny/Documents/images/Beta1.png)
+
+![Top Left, Bottom Right](/Users/danny/Documents/images/TypeI_II.png)
+
+![](/Users/danny/Documents/images/AlphaBetaN.png)
+
+* Large samples lead to everything being significant... you want to know if the **effect** is significant.
+
+![No interaction between groups](/Users/danny/Documents/images/Interference.png)
+
+![](/Users/danny/Documents/images/ValidControl.png)
+* Is showing a charity ad an appropriate control for people we're trying to sell a product to?
+
+![](/Users/danny/Documents/images/ResponseBias.png)
+* Are subjects thinking about their behavior?
+
+![](/Users/danny/Documents/images/FormalizingExperiment.png)
+* Testing two ads: one group would see no ads, one group would see ad A, one group would see ad B, and group 4 would see A & B, to determine if A has an effect, if B has an effect, or if A&B combined have an effect.
+
+```{r - Movie Rental Pricing}
+
+setwd("~/MSBA 2020 All Files/Spring 2020/MSBA 6440 - Causal Inference via Ecnmtrcs Exprmnt/Week 3 - Analysis of Experiment Data")
+
+#*** MSBA 6440 ***#
+#*** Gordon Burtch and Gautam Ray***#
+#*** Updated Feb 2020 ***#
+#*** Code for Lecture 3 ***#
+
+
+
+# Analyzing Movie Rental Pricing Experiment Data
+
+#*** Load Dataset ***#
+MyData<- read.csv("MovieData-Exp.csv")
+
+# Descriptive statistics / plots...
+hist(MyData$leases)
+
+hist(MyData$price)
+
+# Let's make a treatment dummy to keep things simple for now.
+# This helps us do some easy randomization checks.
+# Let's also construct the discount variable.
+MyData$disc <- MyData$base_price - MyData$price
+summary(MyData[MyData$disc>0,]$disc)
+
+MyData$treated <- (MyData$disc > 0)
+# Let's check randomization...
+t.test(likes~treated,data=MyData)
+
+# Let's evaluate statistical power now.
+# Do we have enough data? Remember, we have 0.5 leases per movie-week on average prior
+# to the experiment taking place, for this set of customers.
+# Management wants to know about a 20% increase with 90% confidence.
+# Thus, we need to detect an increase of 0.10 leases per movie in the week of the experiment.
+# That is, 0.50 * 20% = 0.10. This is our delta parameter.
+# 90% confidence implies an alpha of 0.10 (1 - 0.9 = 0.1).
+# We assume a power of 80% absent other information.
+
+# The first power test tells us what sort of difference we can reliably detect with our current
+# sample size... 118 movies per group.
+power_t_test(n=118,type=c("two.sample"),alternative="two.sided",power=0.8,sig.level=0.1,delta=NULL)
+
+# The second tells how big a sample we would need to detect the 20% change they hope to find.
+power_t_test(n=NULL,type=c("two.sample"),alternative="two.sided",power=0.8,sig.level=0.1,delta=0.1)
+
+# Note: we appear to be heavily underpowered to detect the effect management is looking for.
+# I would thus caution management about reading too much into results from this experiment.
+# I might even advise repeating it with the bigger, requisite sample.
+
+# That said, moving on...
+# Let's estimate the treatment effect.
+
+#*** OLS of leases on price and log(price) ***#
+ols <- lm(leases ~ price, data = MyData)
+olslog <- lm(leases ~ log(price), data = MyData)
+stargazer(ols,olslog,title="OLS leases on prices and log(price)",type="text",
+          column.labels=c("price","log(price)"))
+
+
+#*** OLS of leases on price and log(price) with additional controls***#
+olslogcontrols <- lm(leases ~ log(price) + log(likes), data = MyData)
+
+stargazer(ols,olslog,olslogcontrols,
+          title="OLS leases on prices, log(price) and controls",
+          type="text",column.labels=c("price","log(price)","with controls"))
+          
+# Hmmm... something is wrong!
+# WAIT!!! We can't just look at price...
+# Not all of the variation in price is from our experiment!
+# The variation across movies in base-price is endogenous...
+# We need to focus just on the price discount treatment itself...
+
+t.test(leases~treated, data=MyData)
+
+ols_treat <- lm(leases ~ treated, data = MyData)
+ols_log_discount <- lm(leases ~ log(disc+1), data = MyData)
+# Does a positive coefficient make sense? Yes, discount is amount of money removed from price.
+stargazer(ols_treat,ols_log_discount,type="text",column.labels=c("Binary","Log Discount"))
+
+
+# What sort of heterogeneity might we look at here? And how?
+# Let's check out base price.
+ols_moderated_base <- lm(leases ~ treated*base_price, data=MyData)
+ols_log_disc_moderated_base <- lm(leases ~ log(disc+1)*base_price, data=MyData)
+stargazer(ols_moderated_base,ols_log_disc_moderated_base, 
+          type="text",
+column.labels=c("Treated Moderatedy by Base Price","Disc Moderated by Base Price"))
+
+# Why does the treatment effect disappear? Because it's the effect of treatment when
+# base price = 0... this never actually occurs in the data!
+# Let's shift the base price variable so it is mean 0.
+# Then, the coefficient on treatment's main effect reflects treatment on the average movie.
+MyData$log_base_price_demean <- log(MyData$base_price)-mean(log(MyData$base_price))
+ols_moderated_dm <- lm(leases ~ treated*log_base_price_demean, data=MyData)
+ols_log_disc_moderated_dm <- lm(leases ~ log(disc+1)*log_base_price_demean, data=MyData)
+stargazer(ols_moderated_dm,ols_log_disc_moderated_dm, 
+type="text",column.labels=c("Base Price Moderator De-Meaned"), 
+"Log Disc Base Price Moderated De-Meaned")
+
+# Nope, the effect doesn't seem to be moderated by baseline price.
+# You can try it with a log transformation and you'll come to the same conclusion.
+# What can we conclude?
+# Nothing! Don't draw conclusions from null results...
+# Try doing the same thing with likes...
+MyData$likes_demean <- MyData$likes-mean(MyData$likes)
+ols_moderated_likes_dm <- lm(leases ~ treated*likes_demean, data=MyData)
+ols_log_disc_moderated__likes_dm <- lm(leases ~ log(disc+1)*likes_demean, data=MyData)
+stargazer(ols_moderated_likes_dm,
+          ols_log_disc_moderated__likes_dm, 
+type="text",column.labels=c("Like Moderator De-Meaned", "Log Price, Like Moderator De-Mean"))
+
+# We do find that popular movies respond less strongly to the discount treatment.
+# This makes some sense... if a movie is really good, "I don't care what it costs!"
+# The strength of the moderation is pretty weak, however, in practical terms...
+# We are going out to many significant digits... you can try the log transform here,
+# But a better option might also be to just rescale the variable (e.g., 1,000's of likes)
+```
+
+# Session 4: Matching Techniques (matchit)
+
+```{r - Matching Tech - setup}
+
+#*** MSBA 6440 ***#
+#*** Gordon Burtch and Gautam Ray***#
+#*** Updated Feb 2020 ***#
+#*** Code for Lecture 4 ***#
+
+# Analyzing Training Program Data
+# Load Data
+
+setwd("~/MSBA 2020 All Files/Spring 2020/MSBA 6440 - Causal Inference via Ecnmtrcs Exprmnt/Week 4 - Matching Techniques")
+
+# Read data
+MyData<-read.csv("TrainingProgram.csv")
+
+# Estimate Average Treatment Effect
+mean(MyData$re78[MyData$treat == 1]) - mean(MyData$re78[MyData$treat == 0])
+
+
+ols.model <- lm(re78 ~ treat + age + education + 
+                  black + hispanic + married + nodegree + re75 , data = MyData)
+summary(lm(re78 ~ treat + age + education + 
+             black + hispanic + married + nodegree + re75 , data = MyData))
+
+#Exact Matching
+matchit(formula = treat ~ age + education + black + 
+          married + nodegree + re75 + hispanic, data = MyData, method = "exact")
+
+exact.match <- matchit(formula= treat ~ age + education + 
+                         black + married + nodegree + re75 + 
+                         hispanic, data = MyData, method = "exact")
+
+exact.data <- match.data(exact.match)
+
+# Lets Check Covariate Balance
+covs <- subset(MyData, select = -c(treat, re78))
+m.out <- matchit(f.build("treat", covs), data = MyData, method = "exact")
+
+love.plot(m.out, binary = "std", threshold = .1)
+
+
+# Estimate Average Treatment Effect
+
+exact.model <- lm(re78 ~ treat+ age + education + 
+                    black + married + nodegree + re75 + hispanic, data = exact.data)
+
+stargazer(ols.model, exact.model,
+          title="Model with Different Types of Matches",
+          type="text",column.labels=c("OLS Model", "Exact Matches"))
+```
+
+![](/Users/danny/Documents/images/MatchingExample.png)
+* You don't have random assignment; you want to find two individuals with equal propensity to get treated, but only one gets and the other does not.
+
+* Does union membership increase wages?
+
+![](/Users/danny/Documents/images/GeneralMatching.png)
+
+![](/Users/danny/Documents/images/MatchingPruning.png)
+
+![](/Users/danny/Documents/images/MatchingStepByStep.png)
+
+```{r - Propensity score matching}
+
+# Propensity Score Matching
+PS<- glm(treat ~ age + education + 
+           black + married + nodegree + re75 + hispanic, 
+         family = "binomial", data = MyData)
+
+summary(PS)
+
+# No Matching
+MyData$PS<-glm(treat ~ age + education + 
+                 black + married + nodegree + re75 + 
+                 hispanic, data=MyData, family = "binomial")$fitted.values
+
+ggplot(MyData, aes(x = PS, color = factor(treat))) +geom_density()
+## The treated group and the control are pretty similar except for the large 
+# spike of the control group
+
+# Propensity Score Matching - Nearest Match
+nearest.match <- matchit(formula = treat ~ age + education + 
+                           black + married + nodegree + re75 + 
+                           hispanic, data = MyData, method = "nearest", distance = "logit")
+
+matchit(formula = treat ~ age + education + 
+          black + married + nodegree + re75 + 
+          hispanic, data = MyData, method = "nearest", distance = "logit")
+
+# Lets Check Covariate Balance
+covs <- subset(MyData, select = -c(treat, re78))
+
+m.out <- matchit(f.build("treat", covs), 
+                 data = MyData, method = "nearest", distance ="logit")
+
+love.plot(m.out, binary = "std", threshold = .1)
+# We are not matching on covariates, but instead matching on propensity
+# score. On a covariate - covariate basis, they may not be an exact match.
+# The nearest match will look better than the whole data set that was originally plotted.
+```
+
+![](/Users/danny/Documents/images/MatchingBenefits.png)
+
+![](/Users/danny/Documents/images/MatchingIssues.png)
+
+![](/Users/danny/Documents/images/MatchingSolutions.png)
+
+![Improve by removing obserations that do not match. B is the goal.](/Users/danny/Documents/images/MatchingQuality.png)
+
+![](/Users/danny/Documents/images/CoarsenedExactMatching.png)
+
+```{r - Coarsened Exact Matching}
+
+# Coarsend Exact Matching
+# Automatic Coarsend Exact Matching
+autocem.match <- matchit(formula = treat ~ age + education + 
+                           black + married + nodegree + re75 + 
+                           hispanic, data = MyData, method = "cem")
+
+matchit(formula = treat ~ age + education + 
+          black + married + nodegree + re75 + 
+          hispanic, data = MyData, method = "cem")
+
+# Matched 299 212 - Coarsened exact match
+
+autocem.data <- match.data(autocem.match)
+
+autocem.data$PS<-glm(treat ~ age + education + 
+                       black + married + nodegree + re75 + 
+                       hispanic, data=autocem.data, family = "binomial")$fitted.values
+
+ggplot(autocem.data, aes(x = PS, color = factor(treat))) + geom_density()
+# Matching is not as effective because we're not using propensity score to match.
+
+
+#Lets Check Covariate balance
+m.out <- matchit(f.build("treat", covs), data = autocem.data, method = "cem")
+
+love.plot(m.out, binary = "std", threshold = .1)
+# Now we match on covariates, and that's why the plot looks better - it's a 1-1 match.
+```
+
+![](/Users/danny/Documents/images/SenseAnalysis.png)
+
+## Time Shift TV Ex.
+
+```{r - Timeshift TV}
+
+
+setwd("~/MSBA 2020 All Files/Spring 2020/MSBA 6440 - Causal Inference via Ecnmtrcs Exprmnt/Week 4 - Matching Techniques")
+#**** Load the data ***#
+MyData<-read.csv("TSTV-Obs-Dataset-2.csv")
+
+hist(MyData$view_time_live_hr)
+
+#*** Let's get a sense of the data ***# 
+
+#how long is the period of observation?
+max(MyData$week)-min(MyData$week)
+
+#How many subjects got TSTV? (Treated)
+length(unique(MyData$id[MyData$premium==TRUE]))
+
+#How many subjects did not get TSTV? (Control)
+length(unique(MyData$id[MyData$premium==FALSE]))
+
+#In what 'week' does the "treatment" begin?
+min(unique(MyData$week[MyData$after==TRUE]))
+
+#Let's just look at what is going on with average viewership behavior 
+#for treated vs. untreated, in the weeks around the treatment date.
+MyDataAggregated <- aggregate(MyData,
+                              by=list(MyData$premium, MyData$week),FUN=mean)
+
+# plot for total TV time
+p <- ggplot(MyDataAggregated)
+p <- p + 
+  geom_line(data=MyDataAggregated[MyDataAggregated$premium==FALSE,], 
+            aes(week, view_time_total_hr), linetype='dashed') # non premium
+p <- p + 
+  geom_line(data=MyDataAggregated[MyDataAggregated$premium==TRUE,], 
+            aes(week, view_time_total_hr), linetype='solid') # premium
+
+p <- p + geom_vline(xintercept=2227, linetype='dotted')
+p <- p  + xlab("Week") + ylab("Avg. Total Daily TV Viewership (Hours)")
+p <- p + ylim(0, 6) + xlim(2220,2233) + theme_bw()
+p
+
+# plot for live TV time
+p <- ggplot(MyDataAggregated)
+p <- p + 
+  geom_line(data=MyDataAggregated[MyDataAggregated$premium==FALSE,], 
+            aes(week, view_time_live_hr), linetype='dashed')
+p <- p + 
+  geom_line(data=MyDataAggregated[MyDataAggregated$premium==TRUE,], 
+            aes(week, view_time_live_hr), linetype='solid')
+
+p <- p + geom_vline(xintercept=2227, linetype='dotted')
+p <- p  + xlab("Week") + ylab("Avg. Live Daily TV Viewership (Hours)")
+p <- p + ylim(0, 6) + xlim(2220,2233) + theme_bw()
+p
+# The dip shows that viewers with TSTV started watching less live TV.
+
+
+# plot for TSTV time
+p <- ggplot(MyDataAggregated)
+p <- p + 
+  geom_line(data=MyDataAggregated[MyDataAggregated$premium==FALSE,], 
+            aes(week, view_time_tstv_hr), linetype='dashed')
+p <- p + 
+  geom_line(data=MyDataAggregated[MyDataAggregated$premium==TRUE,], 
+            aes(week, view_time_tstv_hr), linetype='solid')
+
+p <- p + geom_vline(xintercept=2227, linetype='dotted')
+p <- p  + xlab("Week") + ylab("Avg. TSTV Daily TV Viewership (Hours)")
+p <- p + ylim(0, 1) + xlim(2220,2233) + theme_bw()
+p
+
+#*** Propensity Score Matching ***#
+
+#For this demonstration, we will use data from the pre-period for matching.
+#We will then estimate the effect of TSTV gifting in the post period.
+
+#*** CREATE A SUMMARY DATASET BEFORE vs. AFTER TSTV IS AVAILABLE ***#
+MyDataSummary <- aggregate(MyData,by=list(MyData$id,MyData$after),FUN=mean)
+MyDataSummary$view_time_total_sq <- MyDataSummary$view_time_total_hr^2
+
+
+# Okay, let's check out our covariate balance; we have one confounder here, view_time_total_hr.
+# This is a dependent variable, but we are going to match on it in the pre-period.
+# That is, we only want subjects who had similar viewership activity before TSTV showed up.
+
+MyPreData <- MyDataSummary[MyDataSummary$after == FALSE,]
+
+tabUnmatched <- CreateTableOne(vars=c("view_time_total_hr",
+                                      "view_time_total_sq"), strata="premium", 
+                               test=TRUE,data=MyPreData)
+print(tabUnmatched, smd=TRUE)
+# Ov average, the premium group watches 30 mins more TV than the control group.
+
+
+# Whoa, lots of imbalance here...
+# Let's see what propensity scores look like... 
+
+
+MyPreData$PS<-glm(premium~view_time_total_hr+view_time_total_sq, 
+                  data=MyPreData, family = "binomial")$fitted.values
+
+ggplot(MyPreData, aes(x = PS)) + 
+  geom_histogram(color = "white") + 
+  facet_wrap(~premium) + xlab("Pr(Premium)") +theme_bw() + coord_flip()
+
+
+
+#*** Match treated and control households on propensity to receive premium based 
+# on pre-treatment time watching TV ***#
+# Note: the matchit command may take a long time to run with large datasets
+
+Matched_Output <- matchit(premium ~ view_time_total_hr + 
+                view_time_total_sq, data = MyPreData, 
+        method = 'nearest', distance = "logit", caliper = 0.001, replace = FALSE)
+
+summary(Matched_Output)
+Matched.ids <- data.table(match.data(Matched_Output))$id
+
+Matched_Data = match.data(Matched_Output)
+
+Matched_Data$PS = glm(premium ~ view_time_total_hr, 
+                      data = Matched_Data, family = "binomial")$fitted.values
+
+ggplot(Matched_Data, aes(x = PS)) + 
+  geom_histogram(color = "white") + 
+  facet_wrap(~premium) + xlab("Pr(Premium)") +theme_bw() + coord_flip() 
+# There is some overlap between the groups.
+
+tabMatched <- CreateTableOne(vars=c("view_time_total_hr",
+        "view_time_total_sq"), strata="premium", test=TRUE,data=Matched_Data)
+
+print(tabMatched, smd=TRUE)
+
+#Now let's estimate the treatment effect with vs. without matching.
+MyDataPost <- MyDataSummary[MyDataSummary$after==TRUE,]
+unmatched_ate <- lm(data=MyDataPost,view_time_total_hr~premium)
+matched_ate <- lm(data=MyDataPost[MyDataPost$id %in% Matched.ids,], view_time_total_hr ~ premium)
+
+#Produce the output table.
+stargazer(unmatched_ate,matched_ate,
+title="Matched vs. Unmatched Estimates",
+column.labels=c("Total Viewership", "Total Viewership"),type="text")
+# If we include propensity matching, then we don't see as much of an increase
+# because most people are already watching too much TV.
+```
+
+# Session 5: Fixed Effect Regression (plm)
+
+## Confounds Are Likely (multiple observations by company)
+
+* Imagine that the true data-generating process looks like this..
+  + Rho refers to correlation here.
+
+$$ Y_it = \alpha + \beta_1 Treat_it + \gamma_1 Confound_i + \mu_i$$
+$$ \rho(Treat,Confound) \ne 0 $$
+* Not the subscipts...
+  + The confound is not time-varying, whereas Y and Treat and time varying.
+  + **We can take advantage of this fact!**
+  + **We can transform the data to make the confound disappear..**
+
+![](/Users/danny/Documents/images/FixedEffect1.png)
+
+$$(Y_it - \overline{Y_i}) = \beta_1(Treat_it - \overline{Treat_i}) + \gamma_i (Confound_i - \overline{Confound_i}) + (u_{it} - \overline{u_i})$$
+
+$$ (Y_it - \overline{Y_i}) = \beta_1(Treat_{it} - \overline{Treat_i} + (u_{it} - \overline{u_i})) $$
+
+![](/Users/danny/Documents/images/FixedEffect2.png)
+* Demand of pizza goes up with price; fixed effect of the city.
+
+![](/Users/danny/Documents/images/FixedEffect3.png)
+
+![](/Users/danny/Documents/images/FixedEffectIssues.png)
+
+![](/Users/danny/Documents/images/LSDV.png)
+
+## Inter-Temporal Differences
+
+* Work with numerical first derivatives (slopes).
+
+* Take dY/dt of our regression equation also causes Confound to go to 0.
+
+$$ Y_it = \alpha + \beta_1 Treat_{it} + \gamma_1 Confound_i + u_{it} $$
+
+* Numerically, this is just transforming the data into time series differences... e.g., first differences.
+
+$$ Y_{it} - Y_{it-1} = \beta(Treat_{it} - Treat_{it-1}) + (u_{it} - u_{it-1}) $$
+
+![](/Users/danny/Documents/images/FirstDiffEst.png)
+
+![](/Users/danny/Documents/images/RandomEffect.png)
+
+```{r - Fixed Effect vs Random Effect}
+
+setwd("~/MSBA 2020 All Files/Spring 2020/MSBA 6440 - Causal Inference via Ecnmtrcs Exprmnt/Week 5 - Fixed Effects Regression")
+
+PData<-read.csv("KoopTobias.csv")
+     
+# Let's try a fixed effect regression.   
+
+within_reg <- plm(data=PData,LOGWAGE~EDUC,
+                  index=c("PERSONID"),effect="individual",model="within")
+
+pooling_reg <- plm(data=PData,LOGWAGE~EDUC,
+                   index=c("PERSONID"),effect="individual",model="pooling")
+
+ols_reg <-lm(data=PData,LOGWAGE~EDUC)
+
+#Let's see if panel data model is needed
+
+pFtest(within_reg, pooling_reg)
+
+stargazer(within_reg,pooling_reg, ols_reg, 
+  title="Within vs. Pooling Models vs. OLS",
+  column.labels = c("Within", "Pooling", "OLS"), type="text")
+
+# Fixed Effect vs Random Effect
+
+within_reg <- plm(data=PData,LOGWAGE~EDUC + ABILITY,
+          index=c("PERSONID"),effect="individual",model="within")
+
+random_reg = plm(LOGWAGE ~ EDUC + ABILITY, data = PData,
+          index=c("PERSONID"), effect="individual", model="random")
+
+stargazer(within_reg,random_reg, 
+          title="Fixed vs. Random Effect Model",
+          column.labels = c("Within", "Random"), type="text")
+
+
+# Hausman test
+phtest(within_reg, random_reg)
+
+# Serial Correlation (Breusch Godfrey Test)
+pbgtest(within_reg)
+
+
+# Testing for Hetroskedasticity
+bptest(LOGWAGE ~ EDUC + factor(PERSONID), data = PData)
+
+
+# Hetroskedasticity and Serial Correlation Consistent Estimator
+coeftest(within_reg) # Original coefficients
+coeftest(within_reg, vcovHC) # Heteroskedasticity consistent coefficients
+```

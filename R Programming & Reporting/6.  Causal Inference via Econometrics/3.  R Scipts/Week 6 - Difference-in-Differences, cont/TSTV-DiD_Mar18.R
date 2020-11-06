@@ -1,0 +1,88 @@
+#### DiD Regression ####
+
+
+install.packages("anomalize")
+
+install.packages(c("Hmisc", "MESS", "effects"))
+
+library(dplyr)
+library(ggplot2)
+library(stargazer)
+
+
+#### Load the data ####
+MyData = read.csv("TSTV-Obs-Dataset.csv")
+
+
+#how long is the period of observation?
+max(MyData$week)-min(MyData$week)
+
+#How many subjects got TSTV? (Treated)
+length(unique(MyData$id[MyData$premium==TRUE]))
+
+#How many subjects did not get TSTV? (Control)
+length(unique(MyData$id[MyData$premium==FALSE]))
+
+#In what 'week' does the "treatment" begin?
+min(unique(MyData$week[MyData$after==TRUE]))
+
+
+
+# As descriptive visualization, let's look at average weekly viewership for both premium and regular viewers
+Week_Ave = MyData %>% group_by(week, premium) %>%
+  summarise(ave_view = mean(view_time_total_hr)) %>% ungroup()
+ggplot(Week_Ave, aes(x = week, y = ave_view, color = factor(premium))) + 
+  geom_line() + 
+  geom_vline(xintercept = 2227, linetype='dotted') + 
+  ylim(0, 6) + xlim(2220,2233) + 
+  theme_bw()
+
+
+
+#### Difference in Differences Regression ####
+# Interpret the treatment effect
+did_basic = lm(log(view_time_total_hr+1) ~ premium*after, data=MyData)
+summary(did_basic)
+
+
+# Let's try replacing the treatment dummy with subject fixed effects.
+# What happened to the estimate of premium?
+did_fe = plm(log(view_time_total_hr+1) ~ premium*after, data = MyData, index=c("id"), effect="individual", model="within")
+summary(did_fe)
+
+# Further add week fixed effects
+did_sfe_tfe = plm(log(view_time_total_hr+1) ~ premium*after, data = MyData, index=c("id", "week"), effect="twoway", model="within")
+summary(did_sfe_tfe)
+
+
+# Let's try dynamic DiD instead.
+did_dyn_sfe_tfe <- lm(log(view_time_total_hr+1) ~ premium + factor(week) + premium*factor(week), data = MyData)
+summary(did_dyn_sfe_tfe)
+
+# Let's retrieve the coefficients and standard errors, and create confidence intervals
+model = summary(did_dyn_sfe_tfe)
+coefs_ses = as.data.frame(model$coefficients[16:28,c("Estimate", "Std. Error")])
+colnames(coefs_ses) = c("beta", "se")
+coefs_ses = coefs_ses %>%
+  mutate(ub90 = beta + 1.96*se,
+         lb90 = beta - 1.96*se,
+         week = 1:nrow(coefs_ses))
+
+# Let's connect the estimates with a line and include a ribbon for the CIs. 
+ggplot(coefs_ses, aes(x = week, y = beta)) + 
+  geom_line() + 
+  geom_hline(yintercept=0,linetype="dashed") + 
+  geom_vline(xintercept=6,linetype="dashed") + 
+  geom_ribbon(aes(ymin = lb90, ymax = ub90), alpha = 0.3) + 
+  theme_bw()
+
+
+# Time for our placebo test... 
+# Let's limit to pre-period data, and shift the treatment date back in time, artificially, and see if we see sig differences pre treatment.
+# Again, recall first week when treatment starts
+MyDataPre <- MyData[MyData$after==0,]
+max(MyDataPre$week)
+MyDataPre$after <- MyDataPre$week > 2224
+did_log_basic_placebo <- lm(data=MyDataPre,log(view_time_total_hr+1)~premium+after+premium*after)
+summary(did_log_basic_placebo)
+

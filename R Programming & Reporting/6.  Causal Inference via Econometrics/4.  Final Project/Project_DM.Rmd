@@ -1,0 +1,101 @@
+---
+title: "MSBA 6440 Project"
+author: "Danny Moncada monca016"
+date: "`r format(Sys.Date(), "%B %d, %Y")`"
+output: pdf_document
+---
+
+```{r libraries}
+
+suppressWarnings(suppressPackageStartupMessages({
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(CausalImpact)
+library(MatchIt)
+}))
+```
+
+```{r}
+
+## Set working dir
+setwd("C:/Users/danny/Downloads")
+
+## Read in data files
+sales <- read_csv("sales data-set.csv")
+stores <- read_csv("stores data-set.csv")
+
+## Look at the data
+glimpse(sales)
+glimpse(stores)
+```
+
+
+```{r}
+
+sales <- sales %>% mutate(Store = as.factor(Store), Dept = as.factor(Dept), Date = as.Date(Date, '%d/%m/%Y'), IsHoliday = )
+
+stores <- stores %>% mutate(Type = as.factor(Type))
+
+glimpse(sales)
+glimpse(stores)
+
+```
+
+```{r}
+
+# 45 different stores
+
+length(unique(sales$Store))
+
+# 81 different departments
+
+length(unique(sales$Dept))
+
+```
+
+
+```{r}
+
+sales <- merge(sales, stores, by.x = 'Store', by.y = 'Store')
+
+```
+
+
+```{r}
+
+# 143 weeks for each Store
+
+store_dates <- sales %>% group_by(Store) %>% summarise(num_dates = length(unique(Date)))
+
+summary(store_dates)
+
+```
+
+```{r}
+
+# Do we have the same number of departments for each store?
+# Nope
+
+store_depts <- sales %>% group_by(Store) %>% summarise(num_depts = length(unique(Dept)))
+
+summary(store_depts)
+
+```
+
+```{r}
+
+# Need oner line per week per store
+
+store_date_grouped <- sales %>% group_by(Store, Date) %>% summarise() %>% ungroup()
+
+store_date_grouped <- store_date_grouped %>% mutate(week = rep(1:length(unique(sales$Date)), length(unique(sales$Store))))
+
+```
+
+```{r}
+
+sales <- merge(sales, store_date_grouped, by = c('Store', 'Date'))
+
+
+```

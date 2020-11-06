@@ -1,0 +1,233 @@
+---
+title: "Star Digital"
+subtitle: "Assessing the Effectiveness of Display Advertising"
+author: "Anthony Meyers, Danny Moncada, Jack Quick, Kevin Grady, Michael Brucek"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: pdf_document
+---
+
+
+```{r libraries, echo=FALSE, warning=FALSE, message=FALSE}
+# Load all the necessary packages required for analysis of Star Digital data
+suppressWarnings(suppressPackageStartupMessages({
+  library(tidyverse)
+  library(anomalize)
+  library(plotly)
+  library(Hmisc)
+  library(MESS)
+  library(dplyr)
+  library(effects)
+  library(ggplot2)
+}))
+```
+
+
+```{r load, echo=FALSE, warning=FALSE}
+#setwd("C:/Users/kevcg/Google Drive/05 Spring 2020/MSBA 6440 - Causal/data/")
+setwd("C:\\Users\\ameyers1\\Google Drive\\05_spring2020\\MSBA 6440 - Causal Inference via Econometrics and Experimentation\\04_GroupSubmission1")
+
+# Read in the data file as dataframe
+star_digital_df = read.csv("starDigital.csv")
+```
+
+
+
+```{r initial_trans, echo=FALSE}
+
+#need to set up the data in order to create charts in the exec summary
+
+# percent of purchases in control and treatment groups
+treatment_purch_pct = (star_digital_df %>% filter(test==1 & purchase==1) %>% nrow())/
+  (star_digital_df %>% filter(test==1) %>% nrow())
+
+control_purch_pct = (star_digital_df %>% filter(test==0 & purchase==1) %>% nrow()) /
+  (star_digital_df %>% filter(test==0) %>% nrow())
+
+
+# Create a total impressions column
+star_digital_df$total_impressions = star_digital_df$sum1to5 + star_digital_df$imp_6
+
+
+# Add anomoulous variable. Anomalize package uses a conservative 3 * IQR range to pick outliers.
+star_digital_df = tbl_df(star_digital_df) %>% anomalize(total_impressions, method = "iqr")
+
+#this is here to plot later using logistic regression.
+star_digital_df = star_digital_df %>% mutate(anom = case_when(anomaly == "Yes" ~ 1,
+                       TRUE ~ 0))
+```
+
+
+# Executive Summary
+This report was created in response to managerial inquiries into the efficacy of current online advertising. More specifically, it was designed to evaluate the impact of ad frequency on purchases and guide marketing budget allocation. 
+
+The test design chosen by Star Digital randomly divided 25,303 subjects into two groups. One group, referred to as the “treatment group”, was exposed to advertisements while the other, the “control group”, was not. The goal was to observe differences in purchase behavior between the treatment and control group to evaluate the incremental impact of advertising. For the purposes of this review, “effective” was simply defined as any statistically significant increase in purchasing as a result of ad exposure.
+
+The testing conducted by Star Digital resulted in reliable evidence that advertising is effective at an overall level.  50.5% of those in the treatment group were converted to a purchase compared to 48.6% of the control group. The validity of the overall result and the experimental design were evaluated at a power of 80% and a significance level of 90%. Further validation at increased significance or power can be conducted upon request. Additional details regarding the testing and validation processes can be found in the Experimental Design Assessment section.
+
+Overall results also show that increasing the frequency of advertising increases the likelihood of a purchase. However, the effect of this conclusion should be received with caution. The positive effect of ad frequency on purchase is present across the full spectrum of the treatment group, yet the impact is more pronounced for subjects who saw to an abnormally high number of ads. Exposure to online advertising is a function of time spent online, meaning those who are online often will naturally see more ads. The average number of ads viewed by those in the treatment group was 7.9, yet some individuals were exposed to as many as 521 ads. These high-frequency viewers are referred to as “anomalous” because they saw at least three times more ads than the top 75% of treatment subjects. This variance in exposure was controlled for in the assessment of results and can be viewed in more detail below 
+
+Finally, Star Digital will increase revenue by moving more advertising to the block of websites 1 through 5. The testing showed a valid and meaningful amount of expected profit from sites 1 through 5, even when the anomalous individuals were accounted for. Website 6 does not possess a significant relationship with revenue when anomalous behavior is removed. As a result, it would be beneficial to explore a shift in advertising spend from site 6 to sites 1 through 5. 
+\newpage  
+
+# Exploratory Data Analysis & Key Observations
+
+### Data Transformations
+The raw data provides impression data at the website level granularity. Websites 1 through 5 were aggregated into a single variable to align with the business question. A count of total impressions across all sites was also created for use in future analysis. With those created, summary data of key variables can be seen in the following table. 
+
+```{r exp_view_summary, echo=FALSE}
+# View some summary statistics of the data
+star_digital_df %>% select(-c(id, imp_1, imp_2, imp_3, imp_4, imp_5, total_impressions_l1, total_impressions_l2, anomaly, anom))  %>% summary()
+```
+**Purchase**  
+The mean purchase value of .50 is evidence that half of the data is from an individual who purchased.  This balance exists evenly in both the test and control groups.  
+
+**Test**  
+The mean test value of .895 shows that nearly 90% of the data resides in the test, or "treatment", group.  
+
+**imp_6, sum1to5, and Total Impressions**  
+The difference between the mean and max of these three variables is notable. This data skews heavily toward 0 with a lengthy tail of outliers stretching the range into hundreds of impressions.  
+
+The following table provides some perspective on how many advertisements consumers were exposed to. It's clear that the majority of people who saw ads were exposed to the mean number of about 8. However, the length of the tail highlights how severely the outliers skew the data. It will be important to control for excessive exposure in the analysis because their behavior and volume may impact key metrics. In addition, those who spend more time online are naturally more likely to purchase online.  
+
+```{r exp_hist_impressions, fig.height = 3, fig.width = 6, fig.align = "center", warning=FALSE, message= FALSE, echo=FALSE}
+# Histogram of all imporessions to see if there are extreme outliers
+ggplot(star_digital_df) + geom_histogram(aes(total_impressions), bins = 150) + theme_classic() + labs(title = 'Distribution of Total Impressions', x = 'Number of impressions', y = 'Frequency')
+
+```
+
+Controlling for users who were exposed to an extreme number of advertisements requires the creation of an "anomalous" variable. A widely-accepted standard definition of anomalous is 1.5 times that of the third quarterly, but in an effort to provide a conservative analysis, three times the third quartile was how anomalous users were defined. A total of 1,942 individuals were classified as anomalous by this definition. 79.7% of these consumers were converted to a purchase, which is much more than their non-anomalous counterparts who only convert to purchases at a rate of 47.8%.  
+
+Finally, a quick review of correlation among the various websites shows that there is mild, if any, correlation between them. Validating this point clears the way to use sites 1 through 5 as a single variable without having to control for each site individually.  
+
+```{r exp_correlation, echo=FALSE}
+# Check correlation on the entire data set
+cor(star_digital_df %>% select(imp_1, imp_2, imp_3, imp_4, imp_5, imp_6))
+```
+
+# Experimental Design Assessment  
+
+This section addresses the viability of the experimental design to ensure results are reliable for inference.  
+
+### Randomization
+The first aspect under review is the randomization among the treatment and control groups. A T-Test was used to explore how the mean number of impressions and purchases compare between the test and control groups. A similar mean in each group implies effective randomization. Significantly different means suggests the attempt to randomize the data failed.
+
+```{r design_ttest_impressions, echo=FALSE}
+# Check randomization between treatment groups
+t.test(total_impressions ~ test, data = star_digital_df)
+```
+*  The mean number of impressions is very similar between the groups, and randomization for this variable is confirmed.  
+
+
+```{r design_ttest_purchase, echo=FALSE}
+#time t test to examine averages between treatment groups
+t.test(purchase ~ test, data = star_digital_df)
+```
+*  The mean number of purchases is also very similar between the groups. Randomization for this variable is also confirmed.
+
+
+### Statistical Power  
+It is important to ensure that the experiment is powerful enough to detect statistically significant changes in purchase behavior between treatment and control groups. A power test was applied using the size of the control group as the value for "n" since 90% of the data was treated. The "power" parameter was set to a widely-accepted default value of .80, and the "significance level" parameter was set to .10 (90% significance). With the "delta" setting at "NULL", this test will provide the level of change that the Star Digital experiment is capable of detecting.  
+
+```{r design_power, echo=FALSE, echo=FALSE}
+#power test to estimate the potential delta we can find
+power_t_test(n=2656,type=c("two.sample"),alternative="two.sided",power=0.8,sig.level=0.1,delta=NULL)
+```
+The delta value of 0.06824315 implies that a change of up to 6.82% can be reliably detected in this experimental design. The difference between the treatment and control group in Star Digital's is below this threshold, meaning this sample can be used to detect a causal effect of advertising on purchase.
+
+### Threats to Causal Inference
+Threats to causal inference, such as omitted variables, should be noted. As always, unobserved confounds like device usage (mobile vs. tablet vs. desktop), customer age, and gender could impact purchase behavior but are not represented in the data. In addition, the sample has not been confirmed as representative of the population. There is potential for mismeasurement as offline purchases and offline ad exposure is not tracked. This raises mild measurement bias concern. Making a purchase is not likely to influence a user's decision to observe an advertisement, so there is little concern about simultaneity.
+
+
+# Results
+The testing conducted by Star Digital resulted in reliable evidence that advertising is effective at an overall level.  50.5% of those in the treatment group were converted to a purchase compared to 48.6% of the control group. The experiment shows a valid, positive trend at the 90% significance when controlling for website and the anomalous class. 
+
+```{r design_frequency_effect_model, echo=FALSE}
+#this creates the logistic regression model to estimate probability of purcahse controling for website impressions, treatement, and anomalous user factor
+logit <- glm(purchase ~ sum1to5 + imp_6 + test + anom, data = star_digital_df, family = "binomial")
+summary(logit)
+```
+It is important to remember that logistic regression model coefficients need to be interpreted with caution as they represent log-odd ratios and not direct probabilities. The positive coefficient value for the "test" variable implies the relationship between ad exposure and purchasing is positive (purchasing increases with exposure to advertisements). The .088 p-value is within the .100 significance threshold that was tested during the power test, meaning this result is accepted as a significant variable in the analysis.
+
+In addition, the experiment provided insight into the effect that frequency of ad viewing has on a potential customer's likelihood to purchase. The following plot shows the distribution of customers who purchased as a function of the number of ads they were served. There is a clear and positive relationship between ads viewed and purchase probability: The more ads someone views, the more likely they are to purchase.  
+
+```{r design_frequency_trend, fig.height = 3, fig.width = 4, fig.align = "center", echo=FALSE}
+# Do more impressions increase probability of making a purchase?
+star_digital_df %>%
+  mutate(prob = purchase) %>%
+  ggplot(aes(total_impressions, prob)) +
+  geom_point(alpha = .15) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) + theme_classic() + labs(title = 'Purchasing Probability', x = 'Total impressions', y = 'Proability')
+```
+
+A secondary view of this same relationship is shown on the following plot. This visualization displays the percentage of customers who made a purchase for each number of ads they were served. The chart extrapolates the trend beyond the 100% purchase point as a result of the linear relationship between ad views and purchases. 
+
+```{r design_frequency_smoothed, fig.height = 4, fig.width = 6, fig.align = "center", message=FALSE, echo=FALSE}
+# Evaluate purchase percentage per ad exposure
+percent_purchase_by_exposure = star_digital_df %>% 
+  group_by(total_impressions) %>%
+  summarise(total_purchases = sum(purchase), count = n()) %>%
+  mutate(ads_seen = total_impressions*count, pct_purchase = total_purchases/count)
+
+# Plot this purchase percentage per ad exposure
+ggplot(percent_purchase_by_exposure, aes(x=total_impressions, y=pct_purchase)) +
+  geom_smooth() + theme_classic() + 
+  ggtitle("Percentage of Purchase vs. Total Number of Impressions") + 
+  labs(x = "Total impressions", y = "Percentage purchase")
+
+```
+Again, a clear and positive relationship between ad frequency and purchasing is seen. This also shows the importance of controlling for anomalous exposure. The cutoff for anomalous views was 21 ads, after which the trend in purchasing remains high and relatively constant.
+
+It was noted that anomalous customers purchase at nearly an 80% rate. The plot below shows the frequency effect of ads on anomalous viewers, and it is very pronounced.  
+
+```{r design_frequency_effect_plot_anoms, fig.height = 3, fig.width = 4, fig.align = "center", echo=FALSE}
+#all effects function lets you review the logit curve for all independent variables.
+plot(allEffects(logit)[4])
+```
+
+It is important to control for this behavior in order to ensure the conclusion regarding frequency holds true across those who were not anomalous. The plot below shows the effect on the treatment group when the anomalous class has been controlled for.  
+
+```{r design_frequency_effect_plot_test, fig.height = 3, fig.width = 4, fig.align = "center", echo=FALSE}
+#all effects function lets you review the logit curve for all independent variables.
+plot(allEffects(logit)[3])
+```
+
+Ad viewing frequency continues to effect purchasing in a positive manner even with the outliers removed, although the impact of that effect is much less.
+
+Exploring which, if any, of the website groups was the most effective in terms of generating revenue required an expected value analysis. Impressions data was transformed into single unit costs (\$25 per 1,000 impressions for websites 1 through 5 and \$20 per 1,000 impressions for website 6). The purchase variable was transformed into its lifetime revenue value of \$1,200.
+
+This transformation allows linear models to estimate an expected revenue value per 1 unit of advertising, relative to the cost of advertising one unit on each website. The output of this analysis is below. Note that this model continues to control for the websites and the anomalous user class.
+
+```{r design_frequency_overall, echo=FALSE}
+# Transform the data to cost and lifetime revenue per unit. 
+star_digital_spend_df <- star_digital_df %>% 
+  mutate(revenue = purchase*1200, 
+         site1to5_cost = (sum1to5/1000)*25,
+         site6_cost = (imp_6/1000)*20)
+
+# Run linear regression to determine relationship between unit cost and unit revenue.
+m11 <- lm(revenue ~ as.factor(test) + 
+            as.factor(anom) + 
+            site1to5_cost + 
+            site6_cost, 
+          data = star_digital_spend_df)
+
+summary(m11)
+```
+
+The output of the linear model shows that the coefficients for both websites 1 to 5 and website 6 are both positive, implying that users who saw impressions on these sites eventually do make purchases. But, the coefficients of the website variables should be compared (expected value revenue from 1 unit of advertising) to the cost of advertising one unit on these websites (\$25 per 1,000 impressions for websites 1 through 5 and \$20 per 1,000 impressions for website 6).
+
+One unit of advertising, defined as 1,000 impressions, generates and expected revenue of $82.27 for websites 1 to 5 and \$18.63 for website 6. Compared to the cost of the advertising, one unit of advertising does not generate any expected profit on website 6 (\$16.83 - \$20 = -\$1.37) where each unit of advertising on websites 1 to 5 generate an expected profit of \$57.27 (\$82.27 - \$25).
+
+Star Digital should focus its advertising on websites 1 through 5 over website 6. However, the coefficient of website 6 in the linear model above is not statistically significant. This implies that caution should be used in making assumptions on advertising on website 6 until more data is available.
+
+
+# Conclusion / Summary
+
+The three main takeaways of this report are as follows:
+
+* The data collected and provided by Star Digital shows a significant positive effect as a result of digital advertising, that is to say being a part of the treatment group. The probability of a user making a purchase increases by approximately 51.77% when controlling for the quantity of advertising impressions the user receives and whether or not a user receives an anomalous number of impressions.
+
+* Exposure to digital advertising is not the only factor that has a causal effect on the probability of a user making an online purchase. The total number (magnitude) of ad impressions that a user is exposed to, whether for a Star Digital advertisement or for a "dummy" ad as the control group received, also has a direct impact on the probability of a purchase. As the total number of ad impressions served to a user increases, so does the probability of a purchase being made by that user. It may be beneficial to note that the frequency effect of advertising exposure is more apparent in anomalous users who were exposed to an extreme amount of ads. Exposure to online advertising is a function of time spent online, meaning those who are online often will naturally see more ads. Nevertheless, there is enough evidence present in the data to conclude that advertisement exposure has an effect on purchasing probability.
+
+* Given the higher profitability of advertising on websites 1 through 5, Star Digital should consider reallocating current marketing spend away from site 6 in order to increase the allocation going to sites 1 through 5. When a user does not exhibit anomalous web browsing behavior, impressions on website 6 do not appear to have a significant relationship with revenue.
+

@@ -1,0 +1,86 @@
+---
+title: "Fixed Effects"
+subtitle: "Simulating Fixed Effects"
+author: "Danny Moncada monca016"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: pdf_document
+---
+
+```{r}
+# Authors: Gordon Burtch and Gautam Ray
+# Course: MSBA 6440
+# Session: Fixed Effects
+# Topic: Simulating Fixed Effects
+# Lecture 5
+
+suppressWarnings(suppressPackageStartupMessages({
+library(stargazer)
+library(plm)
+library(car)
+}))
+```
+
+
+```{r}
+
+# Read in the data
+CountryData<-read.csv("CountryData.csv")
+
+# Create an ordinary least squares regression
+ols<-lm(y ~ x1, data=CountryData)
+summary(ols)
+
+
+yhat <-ols$fitted
+plot(CountryData$x1, CountryData$y, pch=19, xlab="x1", ylab="y")
+abline(lm(CountryData$y~CountryData$x1),lwd=3, col="red")
+
+fixed.dum <-lm(y ~ x1 + factor(country), data=CountryData)
+summary(fixed.dum)
+
+yhat<-fixed.dum$fitted
+scatterplot(yhat~CountryData$x1|CountryData$country, boxplots=FALSE, xlab="x1", ylab="yhat",smooth=FALSE)
+abline(lm(CountryData$y~CountryData$x1),lwd=3, col="red")
+
+#Individual Effect Models
+
+fixed <-plm(y ~ x1, data=CountryData, index=c("country", "year"), effect = "individual", model="within")
+summary(fixed)
+
+pool <-plm(y ~ x1, data=CountryData, index=c("country", "year"), model="pooling")
+summary(pool)
+
+
+pFtest(fixed, ols)
+pFtest(fixed, pool)
+
+random <-plm(y ~ x1, data=CountryData, index=c("country", "year"), effect = "individual", model="random")
+summary(random)
+
+phtest(fixed, random)
+
+#Two-ways effect
+
+fixed.twoways <-plm(y ~ x1, data=CountryData, index=c("country", "year"), effect ="twoways", model="within")
+summary(fixed.twoways)
+
+pFtest(fixed.twoways, ols)
+
+pFtest(fixed.twoways, fixed)
+
+fixed.time <-plm(y ~ x1 + factor(year), data=CountryData, index=c("country", "year"), model="within")
+summary(fixed.time)
+
+pFtest(fixed.time, fixed)
+
+random.twoways <-plm(y ~ x1, data=CountryData, index=c("country", "year"), effect="twoways", model="random")
+summary(random.twoways)
+
+phtest(fixed.twoways, random.twoways)
+
+# Lagrange Multiplier does a comparison with the Pooling model
+
+
+plmtest(fixed, effect ="individual")
+plmtest(fixed, effect ="time")
+plmtest(fixed, effect ="twoways")
