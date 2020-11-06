@@ -26,7 +26,7 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
   e.  Day of Data 2020<br/>
   e.  Miscellaeous Jupyter Notebooks<br/>
   
-5..  R Programming & Reporting<br/>
+5.  R Programming & Reporting<br/>
   a.  Introduction to Statistics for Scientists<br/>
   b.  English Premier League - What Makes a Winner<br/>
   c.  Analytics for Competitive Advantage<br/>
