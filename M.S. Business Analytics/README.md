@@ -5,3 +5,7 @@
 2.  Analytics for Competitive Advantage
 
 3.  Behavioral Finance
+
+4.  Healthcare Analytics
+
+5.  Marketing Management
