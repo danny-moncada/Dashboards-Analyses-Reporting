@@ -28,12 +28,11 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
   
 5.  R Programming & Reporting<br/>
   a.  Introduction to Statistics for Scientists<br/>
-  b.  English Premier League - What Makes a Winner<br/>
-  c.  Analytics for Competitive Advantage<br/>
-  d.  Modeling & Heuristics for Decision Making<br/>
-  e.  Exploratory Data Analytics & Visualizations<br/>
-  f.  Causal Inference via Econometrics<br/>
-  g.  Advanced Issues in Business Analytics<br/>
+  b.  Analytics for Competitive Advantage<br/>
+  c.  Modeling & Heuristics for Decision Making<br/>
+  d.  Exploratory Data Analytics & Visualizations<br/>
+  e.  Causal Inference via Econometrics<br/>
+  f.  Advanced Issues in Business Analytics<br/>
   
 6.  SQL Scripting<br/>
   a.  Data Management, Database, and Data Modeling<br/>
