@@ -35,11 +35,11 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
   f.  Causal Inference via Econometrics<br/>
   g.  Advanced Issues in Business Analytics<br/>
   
-6..  SQL Scripting<br/>
+6.  SQL Scripting<br/>
   a.  Data Management, Database, and Data Modeling<br/>
   b.  University of Minnesota - Position, Job, Compensation<br/>
 
-7..  Tableau Reporting (workbooks)<br/>
+7.  Tableau Reporting (workbooks)<br/>
   a.  Analytics for Competitive Advantage<br/>
   b.  University of Minnesota HR Executive Dashboards<br/>
   c.  Miscellaeous & Development Work<br/>
