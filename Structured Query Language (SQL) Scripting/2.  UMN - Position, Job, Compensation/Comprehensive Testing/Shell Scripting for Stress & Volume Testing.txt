@@ -1,0 +1,70 @@
+Tests:									
+* Analysts ran 3 different tests:									
+									
+--- Selected the top 9 departments based on headcount, applied them as filters, and ran the dashboard									
+-- Selected 10 different departments chosen at random, applied them as filters, and ran the dashboard									
+-- Selected 10 different college / admin units chosen at random, applied them as filters and ran the dashboard									
+* Concurrently, analyst simulated 1000 users running various reports at the same time we ran our reports									
+									
+Findings:									
+* No errors, bugs, or crashes									
+* Most reports and graphs displayed results almost instantly (in some cases ZDept or VP graphs would take ~5-7 seconds to render, but calculations/tables were instant)									
+* Based on OBIEE metrics that Eduardo set up prior to testing, the average run time for reports was 2.7 seconds									
+									
+Top Ten dept ids		emplid #							
+11098		11098	367						
+11093		11093	300						
+11108		11108	276						
+11122		11122	268						
+11140		11140	263						
+11135		11135	255						
+11176		11176	226						
+10237		10237	225						
+10986		10986	224						
+
+======================================================================
+# Shell script to stress UM Analytics (OBIEE) for 1000 users
+# OIT - Danny Moncadamonca016@umn.edu
+
+now=`date +"%Y-%m-%d %T"`
+today=`date +'%m%d%Y'`
+ENV="Dev"
+UP_ENV=${ENV^^}
+MIGRATION_TOOL="/swadm/psoft/deployments/MUD/"
+BI_REPOSITORY="/swadm/birepository/oit-AAS/Business Intelligence/BI Program/BIRepository/MUD/StressTest"
+BI_TOOLS="/swadm/psoft/${ENV}/Oracle_Home/user_projects/domains/BI${UP_ENV}/bitools/bin/nqcmd.sh"
+Filename="stresstest.lsql"
+filext="0"
+latestfile="0"
+uploadrpd="0"
+lsql=${MIGRATION_TOOL}stresstest.lsql
+currentrpd="0"
+file=""
+number=0
+
+for files in "$BI_REPOSITORY"/*
+do
+#echo ".."
+#echo "1 ${files##*/}"					
+#echo "2 ${files##*.}"					
+#echo "3 ${files%.*}"					
+#echo "4 ${files##*/}"					
+#echo "5 ${files#.*}"					
+file="${files##*/}"					
+if [ "${file%.*}" == $Filename ]; then					
+		#echo "${file%.*}"				
+		#echo "$Filename"				
+		#echo ${files##*.}				
+		if [[ ${files##*.} =~ ^[0-9]+$ ]]; then				
+			if [ ${files##*.} -gt $number ]; then			
+				number=${files##*.}		
+			fi			
+		fi				
+	fi					
+	latestfile=$number					
+	lsql=$(<$lsql)					
+	uploadrpd=$Filename"."$latestfile					
+						
+	${BI_TOOLS}-d AnalyticsWeb -u ********** -p ********** -s $files -q -T -td 1000 -t 5 -ds 5 -o output					
+						
+done						

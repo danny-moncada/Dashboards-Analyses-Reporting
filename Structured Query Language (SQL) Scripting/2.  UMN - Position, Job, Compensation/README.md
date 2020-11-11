@@ -2,5 +2,8 @@
 
 2.  University of Minnesota, -Position, Job, Compensation
 
-* Compensation Census
-* Demographics (coming soon)
+* Compensation testing
+* Comprehensive testing (multiple areas)
+* Demographics testing
+* Headcount testing
+* Misceallenous demos
