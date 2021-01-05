@@ -15,7 +15,7 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
   d.  Healthcare Analytics<br/>
   e.  Marketing Management<br/>
   
-3.  Oracle Business Intelligence EE (OBIEE) Reporting (demos coming soon)<br/>
+3.  Oracle Business Intelligence EE (OBIEE) Reporting<br/>
   a.  Twenty-eight production dashboards.
   
 4.  Python Programming & Reporting<br/>
