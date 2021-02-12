@@ -3,7 +3,7 @@
 This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks, R scripts, R markdowns)  that I am the most proud or still use as a reference today.
 
 1.  AS Roma Player Demographics & Assocation Rules Visualizations.ipynb
-  - Analyzing AS Roma Player demographics & generating association rules for successful team building.
+  ** Analyzing AS Roma Player demographics & generating association rules for successful team building.
 
 2.  Modifying EMEA Audit for Hosted Jobs.ipynb
 * Transforming a 4/5 hour manual account reassignment process to a ~4 min Python process.
