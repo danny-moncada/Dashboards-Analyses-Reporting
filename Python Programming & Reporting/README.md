@@ -26,3 +26,9 @@
 * Session Participant Jupyter Notebook (yes, you can run this regression too!)
 
 6.  Miscalleanous Jupyter Notebooks (data visualizations for case studies, side projects)
+
+7.  Summer 2020 Capstone - Predicting Employee Departures
+
+* Knowledge Transfer & Final Presentation
+* Python Notebooks
+* Sample Outcomes
