@@ -1,4 +1,4 @@
-# All files related to the developing of consulting projects.
+# All files related to the development for consulting projects.
 
 ### Repo content: 
 * Dashboard demos (PDFs)
