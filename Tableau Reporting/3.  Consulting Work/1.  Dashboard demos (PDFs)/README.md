@@ -1,4 +1,4 @@
-# PDFs & workbooks related to the development and maintenance of the University's <i>HR Executive Dashboard</i>
+# PDFs & workbooks related to consulting development work.
 
 ### Repo content:
 
