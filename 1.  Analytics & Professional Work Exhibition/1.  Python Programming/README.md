@@ -1,6 +1,6 @@
-# Danny Moncada Favorite Analyses
+# Python Programming Exhibition
 
-This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks, R scripts, R markdowns)  that I am the most proud or still use as a reference today.
+This repository will contain output (PDFs, Jupyter notebooks, Python scripts) of case studies and analytics work that I am the most proud of from my years as an MSBA 2020 student.
 
 1.  <b>AS Roma Player Demographics & Assocation Rules Visualizations.ipynb</b>
 * Analyzing AS Roma Player demographics & generating association rules for successful team building.

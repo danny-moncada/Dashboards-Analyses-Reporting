@@ -1,8 +1,9 @@
-# Danny Moncada Favorite Analyses
+# Analytics & Professional Work Exhibtion
 
 This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks, R scripts, R markdowns)  that I am the most proud or still use as a reference today.
 
-* Knowledge Transfers & Case Studies (PDFs)
-* Python (Jupyter Notebooks)
-* R (R Markdowns)
-* Tableau (PDFs)
+1.  Python Programming
+2.  Tableau Dashboarding
+3.  Case Studies 
+4.  Documentation
+5.  R Programming
