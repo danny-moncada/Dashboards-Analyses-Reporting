@@ -1,6 +1,6 @@
 # Dashboards, Analysis, and Reporting
 
-This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks, R scripts, R markdowns) that have been developed in my last three years at the University of Minnesota, both for the Office of Human Resources as well as a graduate in the MSBA program.
+This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks, R scripts, R markdowns) that have been developed in the last 5+ years as a business intelligence developer at Indeed, the University of Minnesota, and as a graduate in the MSBA program.
 
 1.  Danny Moncada Analytics Exhibition (collection of analyses & documentation that I am proud of, and/or use as a reference guide today.<br/>
   a.  Knowledge Transfers & Case Studies (PDFs)<br/>
