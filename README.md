@@ -1,12 +1,13 @@
 # Dashboards, Analysis, and Reporting
 
-This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks, R scripts, R markdowns) that have been developed in the last 5+ years as a business intelligence developer at Indeed, the University of Minnesota, and as a graduate in the MSBA program.
+This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks, R scripts, R markdowns) that have been developed in the last six and a half years as a senior BI developer / data engineer at Indeed, the University of Minnesota, and IOTAS, Inc.
 
-1.  Danny Moncada Analytics Exhibition (collection of analyses & documentation that I am proud of, and/or use as a reference guide today.<br/>
-  a.  Knowledge Transfers & Case Studies (PDFs)<br/>
-  b.  Python (Jupyter Notebooks)<br/>
-  c.  R (Markdown files)<br/>
-  d.  Tableau (workbooks)<br/>
+1.  Analytics Demo & Professional Work (collection of analyses & documentation that I am proud of, and/or use as a reference guide today.<br/>
+  a.  Python Programming<br/>
+  b.  Tableau (PDFs)<br/>
+  c.  Case Studies<br/>
+  d.  Documentation<br/>
+  e.  R Programming<br/>
   
 2.  Python Programming & Reporting<br/>
   a.  Programming for Data Science<br/>
@@ -19,7 +20,8 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
 3.  Tableau Reporting (workbooks)<br/>
   a.  Analytics for Competitive Advantage<br/>
   b.  University of Minnesota HR Executive Dashboards<br/>
-  c.  Miscellaeous & Development Work<br/>
+  c.  IOTAS Inc Internal Reporting<br/>
+  d.  Miscellaeous & Development Work<br/>
   
 4.  SQL Scripting<br/>
   a.  Data Management, Database, and Data Modeling<br/>
