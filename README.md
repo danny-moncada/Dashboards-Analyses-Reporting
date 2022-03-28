@@ -26,6 +26,7 @@ This repository will contain output (PDFs, Jupyter notebooks, Tableau workbooks,
 4.  SQL Scripting<br/>
   a.  Data Management, Database, and Data Modeling<br/>
   b.  University of Minnesota - Position, Job, Compensation<br/>
+  c.  IOTAS, Inc - Internal Reporting<br/>
 
 5.  M.S. Business Analytics coursework <br/>
   a.  Mathematical Foundations for Business Analytics<br/>
