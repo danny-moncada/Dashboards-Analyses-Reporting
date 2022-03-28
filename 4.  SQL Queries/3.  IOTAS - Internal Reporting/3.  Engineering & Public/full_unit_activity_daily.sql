@@ -1,0 +1,15 @@
+TRUNCATE full_unit_activity;INSERT INTO full_unit_activity with active_accounts as (select date(requesttime) as date_pacific, l.accountid as accountid, count(*) as count from "logs_restapi_logs"."restapi_logs" l, account a where a.email not like '%@iotas%' and a.id = l.accountid group by date_pacific, accountid), scene_plays as (select date(requesttime) as date_pacific, 
+CAST(replace(regexp_replace(l.requestPath, '.*/scene/', ''), '/set', '') AS INTEGER) as scene_id,  accountid as account_id FROM "logs_restapi_logs"."restapi_logs" l 
+WHERE l.httpMethod='POST' AND l.requestPath LIKE '%/scene/%/set%'),
+routine_active_accounts as (SELECT date(re.timestamp) AS date, res.account_id,  COUNT(*) as count FROM routine r, unit_routine ur, unit u, 
+resident res, routine_event re WHERE res.unit_id = u.id AND u.id = ur.unit_id AND r.id = ur.routine_id AND res.suspended_at is null AND re.routine_id = r.id GROUP BY res.account_id, date(re.timestamp)), active_or_scene_routine_active_accounts as (select date, account_id, count(*) as count from ( (select raa.date, raa.account_id  from routine_active_accounts raa) union all ( select aa.date_pacific as date, aa.accountid  from active_accounts aa ) union all (select s.date_pacific, s.account_id from scene_plays s)) group by date, account_id),  
+unit_event_count as (select u.building_id, u.id as unit_id, DATE(datetime) as request_date, count(*) as event_count from feature f, device d, room r, unit u, building b, "logs_restapi_logs"."restapi_feature_updates" l
+where b.id = u.building_id and r.unit_id = u.id and r.id = d.room_id and d.id = f.device_id and f.id = l.feature_id group by u.id, building_id, request_date),
+unit_gets as (select date_pacific, l.unit_id, count(*) as count 
+from (select accountid, date(requesttime) as date_pacific, CAST(CASE WHEN REGEXP_COUNT(replace(regexp_replace(l.requestPath, '.*/unit/', ''), '/rooms', ''), '^[0-9]+$') > 0 THEN replace(regexp_replace(l.requestPath, '.*/unit/', ''), '/rooms', '') ELSE NULL END AS INTEGER) as unit_id
+from "logs_restapi_logs"."restapi_logs" l where l.httpMethod='GET' and l.requestPath like '%/unit/%/room%') l join resident r on l.accountid = r.account_id 
+and r.unit_id = l.unit_id  group by date_pacific, l.unit_id), unit_scene_plays as (select l.date_pacific, s.unit_id, count(*) as count from scene_plays l, scene s where l.scene_id =s.id group by date_pacific, unit_id),
+routine_active_units as (select date(re.timestamp) as date, ur.unit_id,  count(*) as count from routine r, unit_routine ur, routine_event re where  r.id = ur.routine_id and re.routine_id = r.id  group by ur.unit_id, date(re.timestamp)),
+full_unit_activity as (select date, unit_id from ((select date, unit_id, count 
+from routine_active_units) union all (select date_pacific as date, unit_id, 
+count from unit_scene_plays) union all (select request_date as date, unit_id, event_count from unit_event_count) union all (select * from unit_gets)) group by date, unit_id ) SELECT * FROM full_unit_activity;
